@@ -1,0 +1,38 @@
+{
+  "name": "express-light-rail",
+  "version": "1.0.0",
+  "description": "A collection of base models that will help you write an Express app with some of the conceptual benefits of rails.",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc && tsc-alias",
+    "clean": "rm -rf ./dist",
+    "test": "vitest",
+    "lint": "eslint . --ext .js,.ts --ignore-path ../.gitignore",
+    "check-types": "tsc -p tests/tsconfig.json --noEmit"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/klondikemarlen/express-light-rail.git"
+  },
+  "keywords": [
+    "express",
+    "controller",
+    "model",
+    "service",
+    "rails"
+  ],
+  "author": "Marlen Brunner",
+  "license": "MIT",
+  "dependencies": {
+    "@sequelize/core": "^7.0.0-alpha.43",
+    "express": "^4.21.2",
+    "lodash": "^4.17.21"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "eslint": "^9.18.0",
+    "typescript": "^5.7.3",
+    "vitest": "^2.1.8"
+  }
+}
