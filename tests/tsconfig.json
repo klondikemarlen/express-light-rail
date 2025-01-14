@@ -1,0 +1,12 @@
+{
+  "extends": "./../tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": "./../",
+    "paths": {
+      "@/*": ["./src/*", "./tests/*"]
+    },
+    "typeRoots": ["../node_modules/@types", "../@types", "./@types"],
+    "types": ["node", "../vitest/globals"],
+  },
+  "include": ["../src/**/*", "../tests/**/*", ""]
+}

@@ -2,14 +2,9 @@ import { NextFunction, Request, Response } from "express"
 import { Attributes, Model, Order, WhereOptions } from "@sequelize/core"
 import { isEmpty, isNil } from "lodash"
 
-// import User from "@/models/user"
 import { type BaseScopeOptions } from "../base-policy/policy-factory"
 
 export type Actions = "index" | "show" | "new" | "edit" | "create" | "update" | "destroy"
-
-type ControllerRequest = Request & {
-  // currentUser: User
-}
 
 /** Keep in sync with web/src/api/base-api.ts */
 export type ModelOrder = Order &
@@ -27,7 +22,7 @@ const MAX_PER_PAGE_EQUIVALENT = -1
 const DEFAULT_PER_PAGE = 10
 
 // See https://guides.rubyonrails.org/routing.html#crud-verbs-and-actions
-export class API<TModel extends Model = never> {
+export class API<TModel extends Model = never, ControllerRequest extends Request = Request> {
   protected request: ControllerRequest
   protected response: Response
   protected next: NextFunction
@@ -100,20 +95,6 @@ export class API<TModel extends Model = never> {
   }
 
   // Internal helpers
-
-  // This should have been loaded in the authorization middleware
-  // Currently assuming that authorization happens before this controller gets called.
-  // Child controllers that are on an non-authorizable route should override this method
-  // and return undefined
-  // get currentUser(): User {
-  get currentUser() {
-    if ("currentUser" in this.request) {
-      return this.request.currentUser
-    }
-
-    throw new Error("No current user")
-  }
-
   get params() {
     return this.request.params
   }
