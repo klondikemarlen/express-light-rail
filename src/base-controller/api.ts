@@ -2,7 +2,7 @@ import { NextFunction, Request, Response } from "express"
 import { Attributes, Model, Order, WhereOptions } from "@sequelize/core"
 import { isEmpty, isNil } from "lodash"
 
-import { type BaseScopeOptions } from "../base-policy/policy-factory"
+import { type BaseScopeOptions } from "@/base-policy/policy-factory"
 
 export type Actions = "index" | "show" | "new" | "edit" | "create" | "update" | "destroy"
 
