@@ -3,7 +3,6 @@
   "compilerOptions": {
     "baseUrl": "./../",
     "paths": {
-      "express-light-rail": ["./src/index.ts"],
       "@/*": ["./tests/*"]
     },
     "typeRoots": ["../node_modules/@types", "../@types", "./@types"],

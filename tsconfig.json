@@ -1,22 +1,36 @@
 {
   "compilerOptions": {
     "outDir": "./dist",
-    "target": "es2015",
-    "module": "Node16",
-    "moduleResolution": "Node16",
+    "rootDir": ".",
+    "target": "es2020",
+    "module": "esnext",
     "paths": {
       "@/*": ["./src/*", "./dist/*"]
     },
+
+    /* Bundler mode */
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "isolatedModules": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+
+    /* Linting */
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedSideEffectImports": true,
+
+    /* Other Options */
     "declaration": true,
     "emitDecoratorMetadata": true,
     "esModuleInterop": true,
     "experimentalDecorators": true,
     "forceConsistentCasingInFileNames": true /* Disallow inconsistently-cased references to the same file. */,
     "incremental": true,
-    "isolatedModules": true,
     "skipLibCheck": true /* Skip type checking of declaration files. */,
-    "strict": true,
     "useDefineForClassFields": true
   },
-  "include": ["src/**/*"]
+  "include": ["src"]
 }
