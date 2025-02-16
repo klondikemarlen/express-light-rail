@@ -3,14 +3,19 @@
   "version": "1.0.0",
   "description": "A collection of base models that will help you write an Express app with some of the conceptual benefits of rails.",
   "type": "module",
-  "main": "./dist/src/index.js",
-  "module": "./dist/src/index.js",
-  "types": "./dist/src/index.d.ts",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
-    "import": "./dist/src/index.js",
-    "types": "./dist/src/index.d.ts",
-    "default": "./dist/src/index.js"
+    "import": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "default": "./dist/index.js"
   },
+  "files": [
+    "dist/",
+    "LICENSE",
+    "README.md"
+  ],
   "scripts": {
     "start": "ts-node-dev --inspect=0.0.0.0:9229 -r tsconfig-paths/register  src/server.ts",
     "clean": "rm -rf ./dist",
