@@ -3,10 +3,10 @@
   "compilerOptions": {
     "baseUrl": "./../",
     "paths": {
-      "@/*": ["./src/*", "./tests/*"]
+      "@/*": ["./src/*", "./example-app/*"]
     },
     "typeRoots": ["../node_modules/@types", "../@types", "./@types"],
-    "types": ["node", "../vitest/globals"]
+    "types": ["node"]
   },
-  "include": ["../src/**/*", "../tests/**/*", "../example-app/**/*", ""]
+  "include": ["../src/**/*", "../example-app/**/*", ""]
 }
