@@ -2,3 +2,24 @@
 Some base models that will help your write an express app with some of the conceptual benefits of rails.
 
 If you are asking yourself, "Should I be using Rails instead?", the answer is yes, you should be using Rails instead. This library is mearly a shim to reduce the pain of using a limited toolset in a limited environment.
+
+## Development
+
+1. Build the project with:
+    ```bash
+    npm run build
+    ```
+
+## Testing
+
+1. Run the tests with:
+    ```bash
+    npm run test
+    ```
+
+## Deployment
+
+1. Deploy to npm with:
+    ```bash
+    npm run deploy
+    ```
