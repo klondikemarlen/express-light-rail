@@ -1,36 +1,39 @@
 {
   "compilerOptions": {
-    "outDir": "./dist",
-    "rootDir": ".",
-    "target": "es2020",
-    "module": "esnext",
+    /* Language and Environment */
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "target": "es2015",
+    "useDefineForClassFields": true,
+
+    /* Modules */
+    "isolatedModules": true,
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
     "paths": {
       "@/*": ["./src/*", "./dist/*"]
     },
+    "rootDir": ".",
 
-    /* Bundler mode */
-    "moduleResolution": "bundler",
-    "allowImportingTsExtensions": true,
-    "isolatedModules": true,
-    "moduleDetection": "force",
-    "noEmit": true,
+    /* Emit */
+    "declaration": true,
+    "incremental": true,
+    "outDir": "./dist",
+    "sourceMap": true,
 
-    /* Linting */
-    "strict": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
+    /* Type Checking */
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "skipLibCheck": true,
+    "strict": true,
 
-    /* Other Options */
-    "declaration": true,
-    "emitDecoratorMetadata": true,
+    /* Interop Constraints */
     "esModuleInterop": true,
-    "experimentalDecorators": true,
-    "forceConsistentCasingInFileNames": true /* Disallow inconsistently-cased references to the same file. */,
-    "incremental": true,
-    "skipLibCheck": true /* Skip type checking of declaration files. */,
-    "useDefineForClassFields": true
+    "forceConsistentCasingInFileNames": true
   },
+
+  /* Top-Level */
   "include": ["src"]
 }
