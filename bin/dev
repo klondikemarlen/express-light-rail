@@ -1,0 +1,307 @@
+#!/usr/bin/env ruby
+
+require "rdoc"
+
+require_relative "./github_api"
+require_relative "./pull_request_editor"
+
+class DevHelper
+  # Support dashes in command names
+  COMMAND_TO_METHOD = {
+    "ts-node" => :ts_node,
+    "check-types" => :check_types,
+    "branch-from" => :branch_from,
+    "changes-from" => :changes_from,
+    "description-from" => :description_from,
+    "edit-pr" => :edit_pr,
+  }
+  METHOD_TO_COMMAND = COMMAND_TO_METHOD.invert
+
+  REPLACE_PROCESS = "replace_process"
+  WAIT_FOR_PROCESS = "wait_for_process"
+
+  # External Interface
+
+  def self.call(*args)
+    new.call(*args)
+  end
+
+  # Core logic
+
+  def call(*args, **kwargs)
+    command = args[0]
+    method = COMMAND_TO_METHOD.fetch(command, command)
+    if args.length.positive? && respond_to?(method)
+      public_send(method, *args.drop(1), **kwargs)
+    else
+      compose(*args, **kwargs)
+    end
+  end
+
+  def compose(*args, **kwargs)
+    command = compose_command(*args, **kwargs)
+    puts "Running: #{command}"
+
+    case kwargs[:execution_mode]
+    when WAIT_FOR_PROCESS
+      system(command)
+    else
+      exec(command)
+    end
+  end
+
+  # Primary command wrappers
+
+  def build(*args, **kwargs)
+    compose(%w[build], *args, **kwargs)
+  end
+
+  def up(*args, **kwargs)
+    compose(*%w[up --remove-orphans], *args, **kwargs)
+  end
+
+  def down(*args, **kwargs)
+    compose(*%w[down --remove-orphans], *args, **kwargs)
+  end
+
+  def logs(*args, **kwargs)
+    compose(*%w[logs -f], *args, **kwargs)
+  end
+
+  def run(*args, **kwargs)
+    compose(*%w[run --rm], *args, **kwargs)
+  end
+
+  # Custom helpers
+
+  ##
+  # Start a shell in the app container.
+  def sh(*args, **kwargs)
+    run(*%w[app sh], *args, **kwargs)
+  end
+
+  def debug(*args, **kwargs)
+    compose("exec app node inspect localhost:9229", *args, **kwargs)
+  end
+
+  def app(*args, **kwargs)
+    run(*%w[app], *args, **kwargs)
+  end
+
+  def npm(*args, **kwargs)
+    run(*%w[app npm], *args, **kwargs)
+  end
+
+  def ts_node(*args, **kwargs)
+    run(*%w[app npm run ts-node], *args, **kwargs)
+  end
+
+  def check_types(*args, **kwargs)
+    run(*%w[app npm run check-types], *args, **kwargs)
+  end
+
+  def test_app(*args, **kwargs)
+    reformat_project_relative_path_filter_for_vitest!(args, "app/")
+    run(*%w[test_app npm run test], *args, **kwargs)
+  end
+
+  alias test test_app
+
+  def knex(*args, **kwargs)
+    if RUBY_PLATFORM =~ /linux/
+      run(*%w[app npm run knex], *args, execution_mode: WAIT_FOR_PROCESS, **kwargs)
+
+      file_or_directory = "app/src/db"
+      exit(0) unless take_over_needed?(file_or_directory)
+
+      ownit file_or_directory
+    else
+      run(*%w[app npm run knex], *args, **kwargs)
+    end
+  end
+
+  def migrate(*args, **kwargs)
+    action = args[0]
+    knex("migrate:#{action}", *args.drop(1), **kwargs)
+  end
+
+  def seed(*args, **kwargs)
+    action = args[0]
+    knex("seed:#{action}", *args.drop(1), **kwargs)
+  end
+
+  def db(*args, **kwargs)
+    compose(*%w[exec db], *args, **kwargs)
+  end
+
+  ##
+  # Generates and checks out a new Git branch based on a GitHub issue URL.
+  #
+  # Example:
+  #
+  #   dev branch-from https://github.com/icefoganalytics/internal-data-portal/issues/98
+  #   #=> git checkout -b issue-98/switch-test-suite-from-jest-to-vitest
+  #
+  def branch_from(github_issue_url, *args, **kwargs)
+    if github_issue_url.include?("github.com")
+      branch_name = GithubApi.build_branch_name(github_issue_url)
+    else
+      raise ScriptError, "Invalid issue URL: #{github_issue_url}"
+    end
+
+    system("git checkout -b #{branch_name}")
+  end
+
+  def changes_from(branch_or_ref_or_commit_hash = "HEAD")
+    system("git --no-pager log origin/main..#{branch_or_ref_or_commit_hash} --patch")
+  end
+
+  ##
+  # Edits the description of a pull request.
+  # Example:
+  #   dev edit-pr https://github.com/icefoganalytics/travel-authorization/pull/218
+  def edit_pr(pull_request_url, *args, **kwargs)
+    PullRequestEditor.edit_pull_request_description(pull_request_url, *args, **kwargs)
+    exit(0)
+  end
+
+  def ownit(*args, **kwargs)
+    file_or_directory = args[0]
+    raise ScriptError, "Must provide a file or directory path." if file_or_directory.nil?
+
+    if RUBY_PLATFORM =~ /linux/
+      puts "Take ownership of the file or directory? #{file_or_directory}"
+      exec("sudo chown -R #{user_id}:#{group_id} #{file_or_directory}")
+    else
+      raise NotImplementedError, "Not implement for platform #{RUBY_PLATFORM}"
+    end
+  end
+
+  ##
+  # Generate bash completions
+  def bash_completions
+    all_public_methods = public_methods(false).sort
+    all_public_methods.delete(:call)
+    completions = all_public_methods.map { |word| METHOD_TO_COMMAND.fetch(word, word) }
+    puts completions
+  end
+
+  ##
+  # Generate help documentation.
+  def help(*args, **kwargs)
+    rdoc = RDoc::RDoc.new
+    rdoc_arguements = %w[--dry-run --quiet] + [__FILE__]
+    rdoc.document(rdoc_arguements)
+    rdoc_data_for_class = rdoc.store.classes_hash["DevHelper"]
+
+    puts <<~HELP.chomp
+      Development Helper.
+
+      Usage:
+        dev <command> [args]
+
+      Available commands:
+    HELP
+
+    all_public_methods = public_methods(false).sort
+    all_public_methods.delete(:call)
+    longest_command_length = all_public_methods.map(&:length).max
+
+    all_public_methods.each do |method_name|
+      method_doc = rdoc_data_for_class.find_method_named(method_name.to_s)
+      command = METHOD_TO_COMMAND.fetch(method_name, method_name)
+      comment = method_doc.comment
+
+      print "  #{command}"
+      unless comment.empty?
+        first_line_of_comment = comment.to_s.lines[0].strip
+        pad = "-" * (longest_command_length - command.length + 1)
+        print " #{pad} #{first_line_of_comment}"
+      end
+      print "\n"
+    end
+
+    command = compose_command("<args>")
+    puts "\nFallback for unknown commands is to run `#{command}`."
+  end
+
+  #######
+
+  private
+
+  #######
+
+  def container_id(container_name, *args, **kwargs)
+    command = compose_command(*%w[ps -q], container_name, *args, **kwargs)
+    puts "Running: #{command}"
+    id_of_container = `#{command}`.chomp
+    puts "Container id is: #{id_of_container}"
+    id_of_container
+  end
+
+  def compose_command(*args, **kwargs)
+    environment = kwargs.fetch(:environment, "development")
+    "cd #{project_root} && docker compose -f docker-compose.#{environment}.yaml #{args.join(" ")}"
+  end
+
+  def project_root
+    @project_root ||= File.absolute_path("#{__dir__}/..")
+  end
+
+  def take_over_needed?(file_or_directory)
+    files_owned_by_others =
+      system("find #{file_or_directory} -not -user #{user_id} -print -quit | grep -q .")
+    files_owned_by_others
+  end
+
+  def user_id
+    unless RUBY_PLATFORM =~ /linux/
+      raise NotImplementedError, "Not implement for platform #{RUBY_PLATFORM}"
+    end
+
+    `id -u`.strip
+  end
+
+  def group_id
+    unless RUBY_PLATFORM =~ /linux/
+      raise NotImplementedError, "Not implement for platform #{RUBY_PLATFORM}"
+    end
+
+    `id -g`.strip
+  end
+
+  def reformat_project_relative_path_filter_for_vitest!(args, prefix)
+    if args.length.positive? && args[0].start_with?(prefix)
+      src_path_prefix = "#{prefix}src/"
+      test_path_regex = Regexp.escape(prefix)
+      src_path_regex = Regexp.escape(src_path_prefix)
+
+      if args[0].start_with?(src_path_prefix)
+        args[0] = args[0].gsub(/^#{src_path_regex}/, "tests/").gsub(/\.ts$/, ".test.ts")
+        # TODO: handle other file types
+      else
+        args[0] = args[0].gsub(/^#{test_path_regex}/, "")
+      end
+
+      puts "Reformatted path filter from project relative to service relative for vitest."
+    end
+  end
+end
+
+# Only execute main function when file is executed
+DevHelper.call(*ARGV) if $PROGRAM_NAME == __FILE__
+
+## Dev completions
+# https://iridakos.com/programming/2018/03/01/bash-programmable-completion-tutorial
+# _dev_completions () {
+#   local dev_command_path="$(which dev)"
+#   local dev_function_names
+#   dev_function_names="$(ruby "$dev_command_path" bash_completions)"
+#   # COMP_WORDS: an array of all the words typed after the name of the program the compspec belongs to
+#   # COMP_CWORD: an index of the COMP_WORDS array pointing to the word the current cursor is at - in other words, the index of the word the cursor was when the tab key was pressed
+#   # COMP_LINE: the current command line
+#   COMPREPLY=($(compgen -W "$dev_function_names" "${COMP_WORDS[$COMP_CWORD]}"))
+# }
+
+# complete -F _dev_completions dev
+# complete -W "allow" direnv

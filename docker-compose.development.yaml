@@ -1,0 +1,33 @@
+x-default-environment: &default-environment
+  TZ: "UTC"
+  NODE_ENV: development
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: development.Dockerfile
+    image: express-light-rail:latest
+    env_file:
+      - ./.env.development
+    environment:
+      <<: *default-environment
+    tty: true # allows attaching debugger, equivalent of docker exec -t
+    # stdin_open: true # equivalent of docker exec -i
+    ports:
+      - "3000:3000"
+      - "9229:9229"
+    volumes:
+      - ./:/usr/src/app
+      - ./.gitignore:/usr/src/.gitignore
+      - ./.prettierrc.yaml:/usr/src/.prettierrc.yaml
+
+  # For easily generating large PlantUML diagrams
+  # Not relevant to production environment.
+  # Accessible at http://localhost:9999
+  plantuml:
+    image: plantuml/plantuml-server:jetty
+    ports:
+      - 9999:8080
+    environment:
+      PLANTUML_LIMIT_SIZE: 8192
