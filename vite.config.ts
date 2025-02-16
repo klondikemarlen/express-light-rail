@@ -1,24 +1,31 @@
-import { defineConfig } from "vite"
+import { defineConfig } from "vitest/config"
+import tsconfigPaths from "vite-tsconfig-paths"
 
 export default defineConfig({
-  build: {
-    target: "node16",
-    lib: {
-      entry: "src/index.ts", // Entry point for your package
-      formats: ["es", "cjs"], // Build both ESM and CommonJS
-      fileName: (format) => `index.${format}.js`,
+  plugins: [
+    tsconfigPaths({
+      root: ".",
+      projects: ["./tsconfig.json", "./tests/tsconfig.json"],
+    }),
+  ],
+  test: {
+    globals: true,
+    root: ".",
+    globalSetup: "./tests/global-setup.ts",
+    setupFiles: ["./tests/setup.ts"],
+    poolOptions: {
+      forks: {
+        singleFork: true,
+      },
     },
-    rollupOptions: {
-      external: [
-        "express",
-        "lodash",
-        "@sequelize/core", // Keep external dependencies out of the bundle
-      ],
-    },
-  },
-  resolve: {
-    alias: {
-      "@": "/src", // Use @ for cleaner imports
-    },
+    forceRerunTriggers: [
+      "**/*.(html|txt)", // Rerun tests when data files change
+    ],
+    // Mocking
+    clearMocks: true,
+    mockReset: true,
+    restoreMocks: true,
+    unstubEnvs: true,
+    unstubGlobals: true,
   },
 })
