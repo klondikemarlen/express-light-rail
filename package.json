@@ -1,6 +1,6 @@
 {
   "name": "express-light-rail",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A collection of base models that will help you write an Express app with some of the conceptual benefits of rails.",
   "type": "module",
   "main": "./dist/index.js",
