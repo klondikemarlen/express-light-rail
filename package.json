@@ -21,6 +21,7 @@
     "clean": "rm -rf ./dist",
     "build": "npm run clean && tsc && tsc-alias",
     "test": "vitest",
+    "prepublishOnly": "npm run build",
     "ts-node": "ts-node -r tsconfig-paths/register --logError",
     "lint": "eslint .",
     "check-types": "tsc -p tests/tsconfig.json --noEmit"
