@@ -1,3 +1,3 @@
-import User from "./user"
+import User from "./user.js"
 
 export { type User }

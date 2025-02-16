@@ -1,7 +1,7 @@
 import http from "http"
 
-import { API_PORT } from "@/config"
-import app from "@/app"
+import { API_PORT } from "@example-app/config.js"
+import app from "@example-app/app.js"
 
 export const server = http.createServer(app)
 

@@ -2,7 +2,7 @@ import { BaseController } from "express-light-rail"
 import { Model } from "@sequelize/core"
 import { type Request } from "express"
 
-import { User } from "@/example-app/models"
+import { User } from "@example-app/models/index.js"
 
 type ControllerRequest = Request & {
   currentUser: User

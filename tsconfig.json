@@ -11,9 +11,8 @@
     "module": "nodenext",
     "moduleResolution": "nodenext",
     "paths": {
-      "@/*": ["./src/*", "./dist/*"]
+      "@/*": ["./src/*"]
     },
-    "rootDir": ".",
 
     /* Emit */
     "declaration": true,

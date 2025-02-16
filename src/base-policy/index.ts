@@ -1,1 +1,1 @@
-export { type BaseScopeOptions } from "./policy-factory"
+export { type BaseScopeOptions } from "./policy-factory.js"
