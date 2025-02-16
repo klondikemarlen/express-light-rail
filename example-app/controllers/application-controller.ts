@@ -8,7 +8,10 @@ type ControllerRequest = Request & {
   currentUser: User
 }
 
-export class ApplicationController extends BaseController.API<Model, ControllerRequest> {
+export class ApplicationController<M extends Model> extends BaseController.API<
+  M,
+  ControllerRequest
+> {
   // This should have been loaded in the authorization middleware
   // Currently assuming that authorization happens before this controller gets called.
   // Child controllers that are on an non-authorizable route should override this method
