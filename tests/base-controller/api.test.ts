@@ -1,4 +1,4 @@
-import API from "@/base-controller/api"
+import API from "@/base-controller/api.js"
 
 describe("src/base-controller/api.ts", () => {
   describe("API", () => {

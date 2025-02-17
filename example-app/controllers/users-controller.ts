@@ -13,45 +13,48 @@ export class UsersController extends ApplicationController<User> {
       const scopedUsers = UserPolicies.applyScope(scopes, this.currentUser)
 
       const totalCount = await scopedUsers.count({ where })
-      const Users = await scopedUsers.findAll({
+      const users = await scopedUsers.findAll({
         where,
         order,
         limit: this.pagination.limit,
         offset: this.pagination.offset,
       })
       return this.response.json({
-        Users,
+        users,
         totalCount,
       })
     } catch (error) {
-      console.error("Error fetching position actions" + error)
+      console.error(`Error fetching users: ${error}`, { error })
       return this.response.status(400).json({
-        message: `Error fetching position actions: ${error}`,
+        message: `Error fetching users: ${error}`,
       })
     }
   }
 
   async show() {
     try {
-      const User = await this.loadUser()
-      if (isNil(User)) {
+      const user = await this.loadUser()
+      if (isNil(user)) {
         return this.response.status(404).json({
-          message: "Position action not found",
+          message: "User not found",
         })
       }
 
-      const policy = this.buildPolicy(User)
+      const policy = this.buildPolicy(user)
       if (!policy.show()) {
         return this.response.status(403).json({
-          message: "You are not authorized to view this position action",
+          message: "You are not authorized to view this user",
         })
       }
 
-      return this.response.json({ User, policy })
+      return this.response.json({
+        user,
+        policy,
+      })
     } catch (error) {
-      console.error("Error fetching position action" + error)
+      console.error(`Error fetching user: ${error}`, { error })
       return this.response.status(400).json({
-        message: `Error fetching position action: ${error}`,
+        message: `Error fetching user: ${error}`,
       })
     }
   }
@@ -61,80 +64,84 @@ export class UsersController extends ApplicationController<User> {
       const policy = this.buildPolicy()
       if (!policy.create()) {
         return this.response.status(403).json({
-          message: "You are not authorized to create position actions",
+          message: "You are not authorized to create users",
         })
       }
 
       const permittedAttributes = policy.permitAttributesForCreate(this.request.body)
-      const User = await CreateService.perform(permittedAttributes)
-      return this.response.status(201).json({ User })
+      const user = await User.create(permittedAttributes)
+      return this.response.status(201).json({
+        user,
+      })
     } catch (error) {
-      console.error("Error creating position action" + error)
+      console.error(`Error creating user: ${error}`, { error })
       return this.response.status(422).json({
-        message: `Error creating position action: ${error}`,
+        message: `Error creating user: ${error}`,
       })
     }
   }
 
   async update() {
     try {
-      const User = await this.loadUser()
-      if (isNil(User)) {
+      const user = await this.loadUser()
+      if (isNil(user)) {
         return this.response.status(404).json({
-          message: "Position action not found",
+          message: "User not found",
         })
       }
 
-      const policy = this.buildPolicy(User)
+      const policy = this.buildPolicy(user)
       if (!policy.update()) {
         return this.response.status(403).json({
-          message: "You are not authorized to update this position action",
+          message: "You are not authorized to update this user",
         })
       }
 
       const permittedAttributes = policy.permitAttributes(this.request.body)
-      await User.update(permittedAttributes)
-      return this.response.json({ User })
+      await user.update(permittedAttributes)
+      return this.response.json({
+        user,
+      })
     } catch (error) {
-      console.error("Error updating position action" + error)
+      console.error(`Error updating user: ${error}`, { error })
       return this.response.status(422).json({
-        message: `Error updating position action: ${error}`,
+        message: `Error updating user: ${error}`,
       })
     }
   }
 
   async destroy() {
     try {
-      const User = await this.loadUser()
-      if (isNil(User)) {
+      const user = await this.loadUser()
+      if (isNil(user)) {
         return this.response.status(404).json({
           message: "User not found",
         })
       }
 
-      const policy = this.buildPolicy(User)
+      const policy = this.buildPolicy(user)
       if (!policy.destroy()) {
         return this.response.status(403).json({
-          message: "You are not authorized to delete this position action",
+          message: "You are not authorized to delete this user",
         })
       }
 
-      await User.destroy()
+      await user.destroy()
       return this.response.status(204).send()
     } catch (error) {
-      console.error("Error deleting position action" + error)
+      console.error(`Error deleting user: ${error}`, { error })
       return this.response.status(422).json({
-        message: `Error deleting position action: ${error}`,
+        message: `Error deleting user: ${error}`,
       })
     }
   }
 
   private async loadUser() {
-    return User.findByPk(this.params.id)
+    return User.findByPk(this.params.userId)
   }
 
-  private buildPolicy(User: User = User.build()) {
-    return new UserPolicies(this.currentUser, User)
+  private buildPolicy(user: User = User.build()) {
+    return new UserPolicies(this.currentUser, user)
   }
 }
 
