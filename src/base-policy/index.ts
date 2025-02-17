@@ -1,2 +1,8 @@
-export { NO_RECORDS_SCOPE, ALL_RECORDS_SCOPE, BasePolicy } from "./base-policy.js"
-export { type BaseScopeOptions, PolicyFactory } from "./policy-factory.js"
+export {
+  type BaseScopeOptions,
+  type Actions,
+  NO_RECORDS_SCOPE,
+  ALL_RECORDS_SCOPE,
+  POLICY_SCOPE_NAME,
+  BasePolicy,
+} from "./base-policy.js"

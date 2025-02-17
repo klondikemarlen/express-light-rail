@@ -1,3 +1,2 @@
-import User from "./user.js"
-
-export { type User }
+export { Address } from "./address.js"
+export { User } from "./user.js"
