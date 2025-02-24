@@ -38,81 +38,69 @@ export class API<TModel extends Model = never, ControllerRequest extends Request
     this.next = next
   }
 
+  static createActionHandler(action: Actions & keyof API) {
+    return async (req: Request, res: Response, next: NextFunction) => {
+      const controllerInstance = new this(req, res, next)
+      return controllerInstance[action]().catch((error: Error) => {
+        if (error instanceof BaseAPIError) {
+          res.status(error.statusCode).json({
+            message: error.message,
+          })
+        } else {
+          next(error)
+        }
+      })
+    }
+  }
+
+  /**
+   * Maps route to API#index()
+   *
+   * @example
+   * app.route("/api/users").get(UsersController.index)
+   */
   static get index() {
-    return async (req: Request, res: Response, next: NextFunction) => {
-      const controllerInstance = new this(req, res, next)
-      return controllerInstance.index().catch((error) => {
-        if (error instanceof BaseAPIError) {
-          res.status(error.statusCode).json({
-            message: error.message,
-          })
-        } else {
-          next(error)
-        }
-      })
-    }
+    return this.createActionHandler("index")
   }
 
-  // Usage app.post("/api/users", UsersController.create)
-  // maps /api/users to UsersController#create()
+  /**
+   * Maps route to API#create()
+   *
+   * @example
+   * app.route("/api/users").post(UsersController.create)
+   */
   static get create() {
-    return async (req: Request, res: Response, next: NextFunction) => {
-      const controllerInstance = new this(req, res, next)
-      return controllerInstance.create().catch((error) => {
-        if (error instanceof BaseAPIError) {
-          res.status(error.statusCode).json({
-            message: error.message,
-          })
-        } else {
-          next(error)
-        }
-      })
-    }
+    return this.createActionHandler("create")
   }
 
+  /**
+   * Maps route to API#show()
+   *
+   * @example
+   * app.route("/api/users/:userId").get(UsersController.show)
+   */
   static get show() {
-    return async (req: Request, res: Response, next: NextFunction) => {
-      const controllerInstance = new this(req, res, next)
-      return controllerInstance.show().catch((error) => {
-        if (error instanceof BaseAPIError) {
-          res.status(error.statusCode).json({
-            message: error.message,
-          })
-        } else {
-          next(error)
-        }
-      })
-    }
+    return this.createActionHandler("show")
   }
 
+  /**
+   * Maps route to API#update()
+   *
+   * @example
+   * app.route("/api/users/:userId").patch(UsersController.update)
+   */
   static get update() {
-    return async (req: Request, res: Response, next: NextFunction) => {
-      const controllerInstance = new this(req, res, next)
-      return controllerInstance.update().catch((error) => {
-        if (error instanceof BaseAPIError) {
-          res.status(error.statusCode).json({
-            message: error.message,
-          })
-        } else {
-          next(error)
-        }
-      })
-    }
+    return this.createActionHandler("update")
   }
 
+  /**
+   * Maps route to API#destroy()
+   *
+   * @example
+   * app.route("/api/users/:userId").delete(UsersController.destroy)
+   */
   static get destroy() {
-    return async (req: Request, res: Response, next: NextFunction) => {
-      const controllerInstance = new this(req, res, next)
-      return controllerInstance.destroy().catch((error) => {
-        if (error instanceof BaseAPIError) {
-          res.status(error.statusCode).json({
-            message: error.message,
-          })
-        } else {
-          next(error)
-        }
-      })
-    }
+    return this.createActionHandler("destroy")
   }
 
   async index(): Promise<unknown> {
