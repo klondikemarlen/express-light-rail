@@ -3,6 +3,7 @@ import { Attributes, Model, Order, WhereOptions } from "@sequelize/core"
 import { isEmpty, isNil } from "lodash"
 
 import { type BaseScopeOptions } from "@/base-policy/index.js"
+import BaseAPIError from "@/base-controller/base-api-error.js"
 
 export type Actions = "index" | "show" | "new" | "edit" | "create" | "update" | "destroy"
 
@@ -40,7 +41,15 @@ export class API<TModel extends Model = never, ControllerRequest extends Request
   static get index() {
     return async (req: Request, res: Response, next: NextFunction) => {
       const controllerInstance = new this(req, res, next)
-      return controllerInstance.index().catch(next)
+      return controllerInstance.index().catch((error) => {
+        if (error instanceof BaseAPIError) {
+          res.status(error.statusCode).json({
+            message: error.message,
+          })
+        } else {
+          next(error)
+        }
+      })
     }
   }
 
@@ -49,49 +58,81 @@ export class API<TModel extends Model = never, ControllerRequest extends Request
   static get create() {
     return async (req: Request, res: Response, next: NextFunction) => {
       const controllerInstance = new this(req, res, next)
-      return controllerInstance.create().catch(next)
+      return controllerInstance.create().catch((error) => {
+        if (error instanceof BaseAPIError) {
+          res.status(error.statusCode).json({
+            message: error.message,
+          })
+        } else {
+          next(error)
+        }
+      })
     }
   }
 
   static get show() {
     return async (req: Request, res: Response, next: NextFunction) => {
       const controllerInstance = new this(req, res, next)
-      return controllerInstance.show().catch(next)
+      return controllerInstance.show().catch((error) => {
+        if (error instanceof BaseAPIError) {
+          res.status(error.statusCode).json({
+            message: error.message,
+          })
+        } else {
+          next(error)
+        }
+      })
     }
   }
 
   static get update() {
     return async (req: Request, res: Response, next: NextFunction) => {
       const controllerInstance = new this(req, res, next)
-      return controllerInstance.update().catch(next)
+      return controllerInstance.update().catch((error) => {
+        if (error instanceof BaseAPIError) {
+          res.status(error.statusCode).json({
+            message: error.message,
+          })
+        } else {
+          next(error)
+        }
+      })
     }
   }
 
   static get destroy() {
     return async (req: Request, res: Response, next: NextFunction) => {
       const controllerInstance = new this(req, res, next)
-      return controllerInstance.destroy().catch(next)
+      return controllerInstance.destroy().catch((error) => {
+        if (error instanceof BaseAPIError) {
+          res.status(error.statusCode).json({
+            message: error.message,
+          })
+        } else {
+          next(error)
+        }
+      })
     }
   }
 
-  index(): Promise<unknown> {
-    throw new Error("Not Implemented")
+  async index(): Promise<unknown> {
+    throw new BaseAPIError("Not Implemented")
   }
 
-  create(): Promise<unknown> {
-    throw new Error("Not Implemented")
+  async create(): Promise<unknown> {
+    throw new BaseAPIError("Not Implemented")
   }
 
-  show(): Promise<unknown> {
-    throw new Error("Not Implemented")
+  async show(): Promise<unknown> {
+    throw new BaseAPIError("Not Implemented")
   }
 
-  update(): Promise<unknown> {
-    throw new Error("Not Implemented")
+  async update(): Promise<unknown> {
+    throw new BaseAPIError("Not Implemented")
   }
 
-  destroy(): Promise<unknown> {
-    throw new Error("Not Implemented")
+  async destroy(): Promise<unknown> {
+    throw new BaseAPIError("Not Implemented")
   }
 
   // Internal helpers
