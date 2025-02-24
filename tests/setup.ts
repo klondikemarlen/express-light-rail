@@ -16,11 +16,10 @@
  * See: https://vitest.dev/api/vi#vi-mock
  */
 
-
-// import * as matchers from "@/support/matchers"
+import * as matchers from "@tests/support/matchers/index.js"
 
 // // Add New Matchers
-// expect.extend(matchers)
+expect.extend(matchers)
 
 beforeEach(async () => {
   // Do something like clean a database
