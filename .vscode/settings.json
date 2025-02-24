@@ -1,0 +1,17 @@
+{
+  "eslint.validate": ["typescript"],
+  "createTestFile.nameTemplate": "{filename}.test.{extension}",
+  "createTestFile.pathMaps": [
+    {
+      // Other examples
+      // "pathPattern": "/?(.*)",
+      // "testFilePathPattern": "spec/$1"
+      "pathPattern": "src/?(.*)",
+      "testFilePathPattern": "tests/$1"
+    },
+    {
+      "pathPattern": "example-app/?(.*)",
+      "testFilePathPattern": "tests/example-app/$1"
+    }
+  ]
+}
