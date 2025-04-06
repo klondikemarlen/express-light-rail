@@ -1,4 +1,4 @@
-export class BaseAPIError extends Error {
+export class BaseApiError extends Error {
   constructor(
     message: string,
     public statusCode: number = 500
@@ -8,4 +8,4 @@ export class BaseAPIError extends Error {
   }
 }
 
-export default BaseAPIError
+export default BaseApiError

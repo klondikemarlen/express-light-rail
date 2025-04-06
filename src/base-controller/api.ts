@@ -2,8 +2,10 @@ import { NextFunction, Request, Response } from "express"
 import { Attributes, Model, Order, WhereOptions } from "@sequelize/core"
 import { isEmpty, isNil } from "lodash"
 
+import logger from "@/utils/logger.js"
+
 import { type BaseScopeOptions } from "@/base-policy/index.js"
-import BaseAPIError from "@/base-controller/base-api-error.js"
+import BaseApiError from "@/base-controller/base-api-error.js"
 
 export type Actions = "index" | "show" | "new" | "edit" | "create" | "update" | "destroy"
 
@@ -40,16 +42,23 @@ export class API<TModel extends Model = never, ControllerRequest extends Request
 
   static createActionHandler(action: Actions & keyof API) {
     return async (req: Request, res: Response, next: NextFunction) => {
-      const controllerInstance = new this(req, res, next)
-      return controllerInstance[action]().catch((error: Error) => {
-        if (error instanceof BaseAPIError) {
-          res.status(error.statusCode).json({
+      try {
+        const controllerInstance = new this(req, res, next)
+        const result = await controllerInstance[action]()
+        return result
+      } catch (error: unknown) {
+        if (error instanceof BaseApiError) {
+          logger.error(error.message, { error })
+          return res.status(error.statusCode).json({
             message: error.message,
           })
         } else {
-          next(error)
+          logger.error(`Internal Server Error: ${error}`, { error })
+          return res.status(500).json({
+            message: `Internal Server Error: ${error}`,
+          })
         }
-      })
+      }
     }
   }
 
@@ -104,23 +113,23 @@ export class API<TModel extends Model = never, ControllerRequest extends Request
   }
 
   async index(): Promise<unknown> {
-    throw new BaseAPIError("Not Implemented")
+    throw new BaseApiError("Not Implemented")
   }
 
   async create(): Promise<unknown> {
-    throw new BaseAPIError("Not Implemented")
+    throw new BaseApiError("Not Implemented")
   }
 
   async show(): Promise<unknown> {
-    throw new BaseAPIError("Not Implemented")
+    throw new BaseApiError("Not Implemented")
   }
 
   async update(): Promise<unknown> {
-    throw new BaseAPIError("Not Implemented")
+    throw new BaseApiError("Not Implemented")
   }
 
   async destroy(): Promise<unknown> {
-    throw new BaseAPIError("Not Implemented")
+    throw new BaseApiError("Not Implemented")
   }
 
   // Internal helpers
