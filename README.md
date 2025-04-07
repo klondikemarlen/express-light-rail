@@ -6,12 +6,34 @@ If you are asking yourself, "Should I be using Rails instead?", the answer is ye
 
 ## Development
 
+### With Docker
+
+1. Set up `asdf` and install `ruby`.
+2. Set up `direnv` with an `.envrc` with `PATH_add bin`.
+3. Build the app with `dev build`.
+4. Boot the app with `dev up`.
+
+Install software with:
+
+- `dev npm install <package-name>`
+
+### Without Docker
+
 1. Build the project with:
    ```bash
    npm run build
    ```
 
 ## Testing
+
+### With Docker
+
+1. Set up `asdf` and install `ruby`.
+2. Set up `direnv` with an `.envrc` with `PATH_add bin`.
+3. Build the app with `dev build`.
+4. Boot the test service with `dev test`.
+
+### Without Docker
 
 1. Run the tests with:
    ```bash
