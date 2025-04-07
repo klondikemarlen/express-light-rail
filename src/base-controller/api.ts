@@ -7,6 +7,8 @@ import logger from "@/utils/logger.js"
 import { type BaseScopeOptions } from "@/base-policy/index.js"
 import BaseApiError from "@/base-controller/base-api-error.js"
 
+export { BaseApiError }
+
 export type Actions = "index" | "show" | "new" | "edit" | "create" | "update" | "destroy"
 
 /** Keep in sync with web/src/api/base-api.ts */

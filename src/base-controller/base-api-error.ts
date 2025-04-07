@@ -4,7 +4,7 @@ export class BaseApiError extends Error {
     public statusCode: number = 500
   ) {
     super(message)
-    this.name = "BaseAPIError"
+    this.name = this.constructor.name
   }
 }
 

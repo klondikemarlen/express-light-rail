@@ -1,7 +1,7 @@
 import express from "express"
 import request from "supertest"
 
-import API from "@/base-controller/api.js"
+import API, { BaseApiError } from "@/base-controller/api.js"
 
 describe("src/base-controller/api.ts", () => {
   describe("API", () => {
@@ -68,6 +68,34 @@ describe("src/base-controller/api.ts", () => {
         expect(response.status).toBe(500)
         expect(response.body).toMatchObject({
           message: "Not Implemented",
+        })
+      })
+    })
+
+    describe("error handling", () => {
+      class ValidationError extends BaseApiError {
+        constructor(
+          message: string,
+          public statusCode: number = 400
+        ) {
+          super(message, statusCode)
+        }
+      }
+
+      class ExampleController extends API {
+        async create() {
+          throw new ValidationError("Missing some attribute")
+        }
+      }
+
+      app.route("/example-error-api").post(ExampleController.create)
+
+      test("when action errors with an known API error, returns the error", async () => {
+        const response = await request(app).post("/example-error-api").send()
+
+        expect(response.status).toBe(400)
+        expect(response.body).toMatchObject({
+          message: "Missing some attribute",
         })
       })
     })
