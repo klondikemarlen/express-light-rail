@@ -22,6 +22,23 @@ services:
       - ./.gitignore:/usr/src/.gitignore
       - ./.prettierrc.yaml:/usr/src/.prettierrc.yaml
 
+  test_app:
+    build:
+      context: .
+      dockerfile: development.Dockerfile
+    command: /bin/true
+    env_file:
+      - ./.env.development
+    environment:
+      <<: *default-environment
+      NODE_ENV: test
+      DEFAULT_LOG_LEVEL: "info"
+    tty: true
+    volumes:
+      - ./:/usr/src/app
+      - ./.gitignore:/usr/src/.gitignore
+      - ./.prettierrc.yaml:/usr/src/.prettierrc.yaml
+
   # For easily generating large PlantUML diagrams
   # Not relevant to production environment.
   # Accessible at http://localhost:9999
