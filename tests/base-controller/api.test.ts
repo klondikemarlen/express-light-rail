@@ -1,6 +1,8 @@
 import express from "express"
 import request from "supertest"
 
+import { testWithCustomLogLevel } from "@tests/support/index.js"
+
 import API, { BaseApiError } from "@/base-controller/api.js"
 
 describe("src/base-controller/api.ts", () => {
@@ -12,13 +14,16 @@ describe("src/base-controller/api.ts", () => {
     })
 
     describe(".index", () => {
-      beforeEach(() => {
-        app.route("/example-api").get(API.index)
-      })
+      testWithCustomLogLevel("when called, executes the index action", async ({ setLogLevel }) => {
+        // Arrange
+        setLogLevel("silent")
 
-      test("when called, executes the index action", async () => {
+        app.route("/example-api").get(API.index)
+
+        // act
         const response = await request(app).get("/example-api").send()
 
+        // Assert
         expect(response.status).toBe(500)
         expect(response.body).toMatchObject({
           message: "Not Implemented",
@@ -27,13 +32,16 @@ describe("src/base-controller/api.ts", () => {
     })
 
     describe(".create", () => {
-      beforeEach(() => {
-        app.route("/example-api").post(API.create)
-      })
+      testWithCustomLogLevel("when called, executes the create action", async ({ setLogLevel }) => {
+        // Arrange
+        setLogLevel("silent")
 
-      test("when called, executes the create action", async () => {
+        app.route("/example-api").post(API.create)
+
+        // Act
         const response = await request(app).post("/example-api").send()
 
+        // Assert
         expect(response.status).toBe(500)
         expect(response.body).toMatchObject({
           message: "Not Implemented",
@@ -42,13 +50,16 @@ describe("src/base-controller/api.ts", () => {
     })
 
     describe(".show", () => {
-      beforeEach(() => {
-        app.route("/example-api/:someParam").get(API.show)
-      })
+      testWithCustomLogLevel("when called, executes the show action", async ({ setLogLevel }) => {
+        // Arrange
+        setLogLevel("silent")
 
-      test("when called, executes the show action", async () => {
+        app.route("/example-api/:someParam").get(API.show)
+
+        // Act
         const response = await request(app).get("/example-api/1").send()
 
+        // Assert
         expect(response.status).toBe(500)
         expect(response.body).toMatchObject({
           message: "Not Implemented",
@@ -57,13 +68,16 @@ describe("src/base-controller/api.ts", () => {
     })
 
     describe(".update", () => {
-      beforeEach(() => {
-        app.route("/example-api/:someParam").put(API.update)
-      })
+      testWithCustomLogLevel("when called, executes the update action", async ({ setLogLevel }) => {
+        // Arrange
+        setLogLevel("silent")
 
-      test("when called, executes the update action", async () => {
+        app.route("/example-api/:someParam").put(API.update)
+
+        // Act
         const response = await request(app).put("/example-api/1").send()
 
+        // Assert
         expect(response.status).toBe(500)
         expect(response.body).toMatchObject({
           message: "Not Implemented",
@@ -72,18 +86,24 @@ describe("src/base-controller/api.ts", () => {
     })
 
     describe(".destroy", () => {
-      beforeEach(() => {
-        app.route("/example-api/:someParam").delete(API.destroy)
-      })
+      testWithCustomLogLevel(
+        "when called, executes the destroy action",
+        async ({ setLogLevel }) => {
+          // Arrange
+          setLogLevel("silent")
 
-      test("when called, executes the destroy action", async () => {
-        const response = await request(app).delete("/example-api/1").send()
+          app.route("/example-api/:someParam").delete(API.destroy)
 
-        expect(response.status).toBe(500)
-        expect(response.body).toMatchObject({
-          message: "Not Implemented",
-        })
-      })
+          // Act
+          const response = await request(app).delete("/example-api/1").send()
+
+          // Assert
+          expect(response.status).toBe(500)
+          expect(response.body).toMatchObject({
+            message: "Not Implemented",
+          })
+        }
+      )
     })
 
     describe("error handling", () => {
@@ -102,13 +122,16 @@ describe("src/base-controller/api.ts", () => {
         }
       }
 
-      beforeEach(() => {
-        app.route("/example-api").post(ExampleController.create)
-      })
+      testWithCustomLogLevel("when action errors with an known API error, returns the error", async ({ setLogLevel }) => {
+        // Arrange
+        setLogLevel("silent")
 
-      test("when action errors with an known API error, returns the error", async () => {
+        app.route("/example-api").post(ExampleController.create)
+
+        // Act
         const response = await request(app).post("/example-api").send()
 
+        // Assert
         expect(response.status).toBe(400)
         expect(response.body).toMatchObject({
           message: "Missing some attribute",
