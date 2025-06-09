@@ -1,6 +1,14 @@
 import { NextFunction, Request, Response } from "express"
-import { Attributes, Model, Order, WhereOptions } from "@sequelize/core"
-import { isEmpty, isNil } from "lodash"
+import { Attributes, Model, WhereOptions } from "@sequelize/core"
+
+import {
+  buildFilterScopes,
+  buildOrder,
+  buildWhere,
+  determineLimit,
+  getPagination,
+  type ModelOrder,
+} from "@/base-controller/api-helpers/index.js"
 
 import logger from "@/utils/logger.js"
 
@@ -8,23 +16,11 @@ import { type BaseScopeOptions } from "@/base-policy/index.js"
 import BaseApiError from "@/base-controller/base-api-error.js"
 
 export { BaseApiError }
+export type { ModelOrder }
 
 export type Actions = "index" | "show" | "new" | "edit" | "create" | "update" | "destroy"
 
 /** Keep in sync with web/src/api/base-api.ts */
-export type ModelOrder = Order &
-  (
-    | [string, string]
-    | [string, string, string]
-    | [string, string, string, string]
-    | [string, string, string, string, string]
-    | [string, string, string, string, string, string]
-  )
-
-// Keep in sync with web/src/api/base-api.ts
-const MAX_PER_PAGE = 1000
-const MAX_PER_PAGE_EQUIVALENT = -1
-const DEFAULT_PER_PAGE = 10
 
 // See https://guides.rubyonrails.org/routing.html#crud-verbs-and-actions
 export class API<TModel extends Model = never, ControllerRequest extends Request = Request> {
@@ -144,65 +140,35 @@ export class API<TModel extends Model = never, ControllerRequest extends Request
   }
 
   get pagination() {
-    const page = parseInt(this.query.page?.toString() || "") || 1
-    const perPage = parseInt(this.query.perPage?.toString() || "") || DEFAULT_PER_PAGE
-    const limit = this.determineLimit(perPage)
-    const offset = (page - 1) * limit
-    return {
-      page,
-      perPage,
-      limit,
-      offset,
-    }
+    return getPagination(this.query)
   }
 
   buildWhere<TModelOverride extends Model = TModel>(
     overridableOptions: WhereOptions<Attributes<TModelOverride>> = {},
     nonOverridableOptions: WhereOptions<Attributes<TModelOverride>> = {}
   ): WhereOptions<Attributes<TModelOverride>> {
-    // TODO: consider if we should add parsing of Sequelize [Op.is] and [Op.not] here
-    // or in the api/src/utils/enhanced-qs-decoder.ts function
-    const queryWhere = this.query.where as WhereOptions<Attributes<TModelOverride>>
-    return {
-      ...overridableOptions,
-      ...queryWhere,
-      ...nonOverridableOptions,
-    } as WhereOptions<Attributes<TModelOverride>>
+    return buildWhere<TModelOverride>(
+      this.query,
+      overridableOptions,
+      nonOverridableOptions
+    )
   }
 
   buildFilterScopes<FilterOptions extends Record<string, unknown>>(
     initialScopes: BaseScopeOptions[] = []
   ): BaseScopeOptions[] {
-    const filters = this.query.filters as FilterOptions
-    const scopes = initialScopes
-    if (!isEmpty(filters)) {
-      Object.entries(filters).forEach(([key, value]) => {
-        scopes.push({ method: [key, value] })
-      })
-    }
-
-    return scopes
+    return buildFilterScopes<FilterOptions>(this.query, initialScopes)
   }
 
   buildOrder(
     overridableOrder: ModelOrder[] = [],
     nonOverridableOrder: ModelOrder[] = []
   ): ModelOrder[] | undefined {
-    const orderQuery = this.query.order as unknown as ModelOrder[] | undefined
-
-    if (isNil(orderQuery)) {
-      return [...nonOverridableOrder, ...overridableOrder]
-    }
-
-    return [...nonOverridableOrder, ...orderQuery, ...overridableOrder]
+    return buildOrder(this.query, overridableOrder, nonOverridableOrder)
   }
 
   private determineLimit(perPage: number) {
-    if (perPage === MAX_PER_PAGE_EQUIVALENT) {
-      return MAX_PER_PAGE
-    }
-
-    return Math.max(1, Math.min(perPage, MAX_PER_PAGE))
+    return determineLimit(perPage)
   }
 }
 
