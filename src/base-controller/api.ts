@@ -6,7 +6,7 @@ import {
   buildOrder,
   buildWhere,
   determineLimit,
-  getPagination,
+  buildPagination,
   type ModelOrder,
 } from "@/base-controller/api-helpers/index.js"
 
@@ -140,7 +140,7 @@ export class API<TModel extends Model = never, ControllerRequest extends Request
   }
 
   get pagination() {
-    return getPagination(this.query)
+    return buildPagination(this.query)
   }
 
   buildWhere<TModelOverride extends Model = TModel>(
@@ -148,7 +148,7 @@ export class API<TModel extends Model = never, ControllerRequest extends Request
     nonOverridableOptions: WhereOptions<Attributes<TModelOverride>> = {}
   ): WhereOptions<Attributes<TModelOverride>> {
     return buildWhere<TModelOverride>(
-      this.query,
+      this.query.where as WhereOptions<Attributes<TModelOverride>> | undefined,
       overridableOptions,
       nonOverridableOptions
     )
@@ -157,14 +157,14 @@ export class API<TModel extends Model = never, ControllerRequest extends Request
   buildFilterScopes<FilterOptions extends Record<string, unknown>>(
     initialScopes: BaseScopeOptions[] = []
   ): BaseScopeOptions[] {
-    return buildFilterScopes<FilterOptions>(this.query, initialScopes)
+    return buildFilterScopes<FilterOptions>(this.query.filters, initialScopes)
   }
 
   buildOrder(
     overridableOrder: ModelOrder[] = [],
     nonOverridableOrder: ModelOrder[] = []
   ): ModelOrder[] | undefined {
-    return buildOrder(this.query, overridableOrder, nonOverridableOrder)
+    return buildOrder(this.query.order as ModelOrder[] | undefined, overridableOrder, nonOverridableOrder)
   }
 
   private determineLimit(perPage: number) {

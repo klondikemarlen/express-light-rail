@@ -5,6 +5,6 @@ export {
   buildOrder,
   buildWhere,
   determineLimit,
-  getPagination,
+  buildPagination,
   type ModelOrder,
 } from "./api-helpers/index.js"

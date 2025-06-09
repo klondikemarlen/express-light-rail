@@ -1,8 +1,8 @@
-import { determineLimit } from "./determineLimit.js"
+import { determineLimit } from "./determine-limit.js"
 
 const DEFAULT_PER_PAGE = 10
 
-export function getPagination(query: Record<string, unknown>): {
+export function buildPagination(query: Record<string, unknown>): {
   page: number
   perPage: number
   limit: number
