@@ -1,5 +1,6 @@
 import { Order } from "@sequelize/core"
 import { isNil } from "lodash"
+import { extractArray } from "./assert-utils.js"
 
 export type ModelOrder = Order & (
   | [string, string]
@@ -10,13 +11,15 @@ export type ModelOrder = Order & (
 )
 
 export function buildOrder(
-  order: ModelOrder[] | undefined,
+  order: unknown,
   overridableOrder: ModelOrder[] = [],
   nonOverridableOrder: ModelOrder[] = [],
 ): ModelOrder[] | undefined {
-  if (isNil(order)) {
+  const typedOrder = extractArray<ModelOrder>(order)
+
+  if (isNil(typedOrder)) {
     return [...nonOverridableOrder, ...overridableOrder]
   }
 
-  return [...nonOverridableOrder, ...order, ...overridableOrder]
+  return [...nonOverridableOrder, ...typedOrder, ...overridableOrder]
 }

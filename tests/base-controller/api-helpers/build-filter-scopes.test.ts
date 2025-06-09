@@ -8,7 +8,7 @@ describe("tests/base-controller/api-helpers/build-filter-scopes.test.ts", () => 
       const initial: BaseScopeOptions[] = [{ method: ["existing", true] }]
 
       // Act
-      const scopes = buildFilterScopes({ byStatus: "active", byType: 1 }, [...initial])
+      const scopes = buildFilterScopes({ byStatus: "active", byType: 1 }, initial)
 
       // Assert
       expect(scopes).toEqual<BaseScopeOptions[]>([
@@ -23,7 +23,18 @@ describe("tests/base-controller/api-helpers/build-filter-scopes.test.ts", () => 
       const initial: BaseScopeOptions[] = [{ method: ["existing", true] }]
 
       // Act
-      const scopes = buildFilterScopes(undefined, [...initial])
+      const scopes = buildFilterScopes(undefined, initial)
+
+      // Assert
+      expect(scopes).toEqual(initial)
+    })
+
+    test("ignores non-object filters", () => {
+      // Arrange
+      const initial: BaseScopeOptions[] = []
+
+      // Act
+      const scopes = buildFilterScopes("bad" as unknown, initial)
 
       // Assert
       expect(scopes).toEqual(initial)

@@ -23,5 +23,16 @@ describe("tests/base-controller/api-helpers/build-where.test.ts", () => {
       // Assert
       expect(result.archived).toBe(false)
     })
+
+    test("ignores non-object where", () => {
+      // Arrange
+      const where = "bad" as unknown
+
+      // Act
+      const result = buildWhere(where, { archived: false }, { id: 3 })
+
+      // Assert
+      expect(result).toEqual({ archived: false, id: 3 })
+    })
   })
 })

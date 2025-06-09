@@ -148,7 +148,7 @@ export class API<TModel extends Model = never, ControllerRequest extends Request
     nonOverridableOptions: WhereOptions<Attributes<TModelOverride>> = {}
   ): WhereOptions<Attributes<TModelOverride>> {
     return buildWhere<TModelOverride>(
-      this.query.where as WhereOptions<Attributes<TModelOverride>> | undefined,
+      this.query.where,
       overridableOptions,
       nonOverridableOptions
     )
@@ -164,7 +164,7 @@ export class API<TModel extends Model = never, ControllerRequest extends Request
     overridableOrder: ModelOrder[] = [],
     nonOverridableOrder: ModelOrder[] = []
   ): ModelOrder[] | undefined {
-    return buildOrder(this.query.order as ModelOrder[] | undefined, overridableOrder, nonOverridableOrder)
+    return buildOrder(this.query.order, overridableOrder, nonOverridableOrder)
   }
 
   private determineLimit(perPage: number) {
