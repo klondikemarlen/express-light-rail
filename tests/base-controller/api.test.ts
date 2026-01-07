@@ -422,5 +422,310 @@ describe("src/base-controller/api.ts", () => {
         })
       })
     })
+
+    describe("skip filters", () => {
+      testWithCustomLogLevel("skips inherited before action filters", async ({ setLogLevel }) => {
+        setLogLevel("silent")
+
+        const callOrder: string[] = []
+
+        class ParentController extends API {
+          static beforeAction = [{ method: "parentBefore" }]
+
+          parentBefore() {
+            callOrder.push("parent-before")
+          }
+
+          async index() {
+            callOrder.push("index")
+            return this.render({ message: "ok" })
+          }
+        }
+
+        class ChildController extends ParentController {
+          static skipBeforeAction = ["parentBefore"]
+        }
+
+        app.route("/test").get(ChildController.index)
+        await request(app).get("/test").send()
+
+        // Should skip the parent filter
+        expect(callOrder).toEqual(["index"])
+      })
+
+      testWithCustomLogLevel("skips inherited after action filters", async ({ setLogLevel }) => {
+        setLogLevel("silent")
+
+        const callOrder: string[] = []
+
+        class ParentController extends API {
+          static afterAction = [{ method: "parentAfter" }]
+
+          parentAfter() {
+            callOrder.push("parent-after")
+          }
+
+          async index() {
+            callOrder.push("index")
+            return this.render({ message: "ok" })
+          }
+        }
+
+        class ChildController extends ParentController {
+          static skipAfterAction = ["parentAfter"]
+        }
+
+        app.route("/test").get(ChildController.index)
+        await request(app).get("/test").send()
+
+        // Should skip the parent filter
+        expect(callOrder).toEqual(["index"])
+      })
+
+      testWithCustomLogLevel("inherits filters but applies skip", async ({ setLogLevel }) => {
+        setLogLevel("silent")
+
+        const callOrder: string[] = []
+
+        class ParentController extends API {
+          static beforeAction = [
+            { method: "filter1" },
+            { method: "filter2" }
+          ]
+
+          filter1() {
+            callOrder.push("filter1")
+          }
+
+          filter2() {
+            callOrder.push("filter2")
+          }
+
+          async index() {
+            callOrder.push("index")
+            return this.render({ message: "ok" })
+          }
+        }
+
+        class ChildController extends ParentController {
+          static skipBeforeAction = ["filter1"]
+        }
+
+        app.route("/test").get(ChildController.index)
+        await request(app).get("/test").send()
+
+        // Should run filter2 but skip filter1
+        expect(callOrder).toEqual(["filter2", "index"])
+      })
+    })
+
+    describe("rescue_from", () => {
+      class CustomError extends Error {
+        constructor(message: string) {
+          super(message)
+          this.name = "CustomError"
+        }
+      }
+
+      class AnotherError extends Error {
+        constructor(message: string) {
+          super(message)
+          this.name = "AnotherError"
+        }
+      }
+
+      testWithCustomLogLevel("rescues custom errors with handler", async ({ setLogLevel }) => {
+        setLogLevel("silent")
+
+        class RescueController extends API {
+          static rescueFrom = [
+            { error: CustomError, with: "handleCustomError" }
+          ]
+
+          handleCustomError(error: CustomError) {
+            return this.render({ error: error.message }, "bad_request")
+          }
+
+          async index() {
+            throw new CustomError("Something went wrong")
+          }
+        }
+
+        app.route("/test").get(RescueController.index)
+        const response = await request(app).get("/test").send()
+
+        expect(response.status).toBe(400)
+        expect(response.body).toMatchObject({
+          error: "Something went wrong"
+        })
+      })
+
+      testWithCustomLogLevel("matches specific error types", async ({ setLogLevel }) => {
+        setLogLevel("silent")
+
+        const handlers: string[] = []
+
+        class RescueController extends API {
+          static rescueFrom = [
+            { error: CustomError, with: "handleCustomError" },
+            { error: AnotherError, with: "handleAnotherError" }
+          ]
+
+          handleCustomError(error: CustomError) {
+            handlers.push("custom")
+            return this.render({ error: error.message }, "bad_request")
+          }
+
+          handleAnotherError(error: AnotherError) {
+            handlers.push("another")
+            return this.render({ error: error.message }, "internal_server_error")
+          }
+
+          async index() {
+            throw new AnotherError("Another error")
+          }
+        }
+
+        app.route("/test").get(RescueController.index)
+        const response = await request(app).get("/test").send()
+
+        expect(handlers).toEqual(["another"])
+        expect(response.status).toBe(500)
+      })
+
+      testWithCustomLogLevel("inherits rescue_from from parent", async ({ setLogLevel }) => {
+        setLogLevel("silent")
+
+        class ParentController extends API {
+          static rescueFrom = [
+            { error: CustomError, with: "handleError" }
+          ]
+
+          handleError(error: Error) {
+            return this.render({ error: error.message }, "bad_request")
+          }
+
+          async index() {
+            return this.render({ message: "ok" })
+          }
+        }
+
+        class ChildController extends ParentController {
+          async index() {
+            throw new CustomError("Child error")
+          }
+        }
+
+        app.route("/test").get(ChildController.index)
+        const response = await request(app).get("/test").send()
+
+        expect(response.status).toBe(400)
+        expect(response.body).toMatchObject({
+          error: "Child error"
+        })
+      })
+
+      testWithCustomLogLevel("falls back to default error handling if no rescue_from matches", async ({ setLogLevel }) => {
+        setLogLevel("silent")
+
+        class RescueController extends API {
+          static rescueFrom = [
+            { error: CustomError, with: "handleCustomError" }
+          ]
+
+          handleCustomError(error: CustomError) {
+            return this.render({ error: error.message }, "bad_request")
+          }
+
+          async index() {
+            throw new BaseApiError("API Error", 422)
+          }
+        }
+
+        app.route("/test").get(RescueController.index)
+        const response = await request(app).get("/test").send()
+
+        // Should fall back to default BaseApiError handling
+        expect(response.status).toBe(422)
+        expect(response.body).toMatchObject({
+          message: "API Error"
+        })
+      })
+    })
+
+    describe("strong parameters", () => {
+      testWithCustomLogLevel("requires parameter and permits specific keys", async ({ setLogLevel }) => {
+        setLogLevel("silent")
+
+        class StrongParamsController extends API {
+          async create() {
+            const userParams = this.strongParams.require("user").permit(["name", "email"])
+            return this.render({ params: userParams }, "created")
+          }
+        }
+
+        app.use(express.json())
+        app.route("/test").post(StrongParamsController.create)
+
+        const response = await request(app)
+          .post("/test")
+          .send({
+            user: {
+              name: "John",
+              email: "john@example.com",
+              password: "secret"
+            }
+          })
+
+        expect(response.status).toBe(201)
+        expect(response.body.params).toEqual({
+          name: "John",
+          email: "john@example.com"
+        })
+        expect(response.body.params.password).toBeUndefined()
+      })
+
+      testWithCustomLogLevel("throws error when required parameter is missing", async ({ setLogLevel }) => {
+        setLogLevel("silent")
+
+        class StrongParamsController extends API {
+          async create() {
+            const userParams = this.strongParams.require("user").permit(["name"])
+            return this.render({ params: userParams }, "created")
+          }
+        }
+
+        app.use(express.json())
+        app.route("/test").post(StrongParamsController.create)
+
+        const response = await request(app)
+          .post("/test")
+          .send({ other: "data" })
+
+        expect(response.status).toBe(400)
+        expect(response.body.message).toContain("Parameter 'user' is required")
+      })
+
+      testWithCustomLogLevel("handles empty objects", async ({ setLogLevel }) => {
+        setLogLevel("silent")
+
+        class StrongParamsController extends API {
+          async create() {
+            const userParams = this.strongParams.require("user").permit(["name"])
+            return this.render({ params: userParams })
+          }
+        }
+
+        app.use(express.json())
+        app.route("/test").post(StrongParamsController.create)
+
+        const response = await request(app)
+          .post("/test")
+          .send({ user: {} })
+
+        expect(response.status).toBe(200)
+        expect(response.body.params).toEqual({})
+      })
+    })
   })
 })

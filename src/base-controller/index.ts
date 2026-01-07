@@ -1,4 +1,5 @@
 export { API } from "./api.js"
 export { BaseApiError } from "./base-api-error.js"
+export { StrongParameters } from "./strong-parameters.js"
 export * from "./http-status-codes.js"
-export type { Actions, FilterConfig } from "./api.js"
+export type { Actions, FilterConfig, RescueFromConfig } from "./api.js"

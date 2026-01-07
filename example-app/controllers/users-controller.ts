@@ -90,7 +90,9 @@ export class UsersController extends ApplicationController<User> {
         )
       }
 
-      const permittedAttributes = policy.permitAttributesForCreate(this.request.body)
+      // Use strong parameters to filter input (demonstrates new feature)
+      const userParams = this.strongParams.require("user").permit(["email", "firstName", "lastName"])
+      const permittedAttributes = policy.permitAttributesForCreate(userParams)
       const user = await User.create(permittedAttributes)
       // Use the new render() helper with 'created' status
       return this.render({ user }, "created")

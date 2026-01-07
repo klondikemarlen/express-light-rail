@@ -11,8 +11,9 @@ import {
   type HttpStatusCode,
   toStatusCode,
 } from "@/base-controller/http-status-codes.js"
+import StrongParameters from "@/base-controller/strong-parameters.js"
 
-export { BaseApiError }
+export { BaseApiError, StrongParameters }
 
 export type Actions = "index" | "show" | "new" | "edit" | "create" | "update" | "destroy"
 
@@ -20,6 +21,11 @@ export type FilterConfig = {
   method: string
   only?: Actions[]
   except?: Actions[]
+}
+
+export type RescueFromConfig = {
+  error: new (...args: any[]) => Error
+  with: string
 }
 
 /** Keep in sync with web/src/api/base-api.ts */
@@ -46,6 +52,11 @@ export class API<TModel extends Model = never, ControllerRequest extends Request
   // Rails-style action filters
   static beforeAction: FilterConfig[] = []
   static afterAction: FilterConfig[] = []
+  static skipBeforeAction: string[] = []
+  static skipAfterAction: string[] = []
+
+  // Rails-style exception handling
+  static rescueFrom: RescueFromConfig[] = []
 
   constructor(req: Request, res: Response, next: NextFunction) {
     // Assumes authorization has occured first in
@@ -59,20 +70,32 @@ export class API<TModel extends Model = never, ControllerRequest extends Request
 
   static createActionHandler(action: Actions & keyof API) {
     return async (req: Request, res: Response, next: NextFunction) => {
-      try {
-        const controllerInstance = new this(req, res, next)
+      const controllerInstance = new this(req, res, next)
 
-        // Run before action filters
-        await this.runFilters(controllerInstance, this.beforeAction, action)
+      try {
+        // Run before action filters (with skip support)
+        const beforeFilters = this.getFiltersWithInheritance("beforeAction", "skipBeforeAction")
+        await this.runFilters(controllerInstance, beforeFilters, action)
 
         // Run the main action
         const result = await controllerInstance[action]()
 
-        // Run after action filters
-        await this.runFilters(controllerInstance, this.afterAction, action)
+        // Run after action filters (with skip support)
+        const afterFilters = this.getFiltersWithInheritance("afterAction", "skipAfterAction")
+        await this.runFilters(controllerInstance, afterFilters, action)
 
         return result
       } catch (error: unknown) {
+        // Try rescue_from handlers first
+        const rescueHandler = this.findRescueHandler(error)
+        if (rescueHandler) {
+          const handler = (controllerInstance as any)[rescueHandler.with]
+          if (typeof handler === "function") {
+            return await handler.call(controllerInstance, error)
+          }
+        }
+
+        // Fall back to default error handling
         if (error instanceof BaseApiError) {
           logger.error(error.message, { error })
           return res.status(error.statusCode).json({
@@ -86,6 +109,49 @@ export class API<TModel extends Model = never, ControllerRequest extends Request
         }
       }
     }
+  }
+
+  private static findRescueHandler(error: unknown): RescueFromConfig | null {
+    // Walk up the prototype chain to find a matching rescue_from handler
+    let currentClass: any = this
+    while (currentClass && currentClass !== API) {
+      const rescueFromConfigs = currentClass.rescueFrom || []
+      for (const config of rescueFromConfigs) {
+        if (error instanceof config.error) {
+          return config
+        }
+      }
+      currentClass = Object.getPrototypeOf(currentClass)
+    }
+    return null
+  }
+
+  private static getFiltersWithInheritance(
+    filterProp: "beforeAction" | "afterAction",
+    skipProp: "skipBeforeAction" | "skipAfterAction"
+  ): FilterConfig[] {
+    const allFilters: FilterConfig[] = []
+    const skipFilters: string[] = (this as any)[skipProp] || []
+
+    // Walk up the prototype chain to collect all filters (from parent to child)
+    const classChain: any[] = []
+    let currentClass: any = this
+    while (currentClass && currentClass !== API) {
+      classChain.push(currentClass)
+      currentClass = Object.getPrototypeOf(currentClass)
+    }
+
+    // Add filters from parent to child (reverse chain)
+    // Only include filters that are directly defined on the class, not inherited
+    for (let i = classChain.length - 1; i >= 0; i--) {
+      if (Object.prototype.hasOwnProperty.call(classChain[i], filterProp)) {
+        const filters = classChain[i][filterProp] || []
+        allFilters.push(...filters)
+      }
+    }
+
+    // Filter out skipped filters
+    return allFilters.filter((filter) => !skipFilters.includes(filter.method))
   }
 
   private static shouldRunFilter(filter: FilterConfig, action: Actions): boolean {
@@ -192,6 +258,17 @@ export class API<TModel extends Model = never, ControllerRequest extends Request
 
   get query() {
     return this.request.query
+  }
+
+  /**
+   * Strong parameters for filtering request body
+   * Rails equivalent: params.require(:user).permit(:name, :email)
+   *
+   * @example
+   * const userParams = this.strongParams.require("user").permit(["name", "email"])
+   */
+  get strongParams() {
+    return new StrongParameters(this.request.body || {})
   }
 
   get pagination() {
