@@ -6,10 +6,21 @@ import logger from "@/utils/logger.js"
 
 import { type BaseScopeOptions } from "@/base-policy/index.js"
 import BaseApiError from "@/base-controller/base-api-error.js"
+import {
+  type HttpStatusSymbol,
+  type HttpStatusCode,
+  toStatusCode,
+} from "@/base-controller/http-status-codes.js"
 
 export { BaseApiError }
 
 export type Actions = "index" | "show" | "new" | "edit" | "create" | "update" | "destroy"
+
+export type FilterConfig = {
+  method: string
+  only?: Actions[]
+  except?: Actions[]
+}
 
 /** Keep in sync with web/src/api/base-api.ts */
 export type ModelOrder = Order &
@@ -32,6 +43,10 @@ export class API<TModel extends Model = never, ControllerRequest extends Request
   protected response: Response
   protected next: NextFunction
 
+  // Rails-style action filters
+  static beforeAction: FilterConfig[] = []
+  static afterAction: FilterConfig[] = []
+
   constructor(req: Request, res: Response, next: NextFunction) {
     // Assumes authorization has occured first in
     // api/src/middlewares/jwt-middleware.ts and api/src/middlewares/authorization-middleware.ts
@@ -46,7 +61,16 @@ export class API<TModel extends Model = never, ControllerRequest extends Request
     return async (req: Request, res: Response, next: NextFunction) => {
       try {
         const controllerInstance = new this(req, res, next)
+
+        // Run before action filters
+        await this.runFilters(controllerInstance, this.beforeAction, action)
+
+        // Run the main action
         const result = await controllerInstance[action]()
+
+        // Run after action filters
+        await this.runFilters(controllerInstance, this.afterAction, action)
+
         return result
       } catch (error: unknown) {
         if (error instanceof BaseApiError) {
@@ -59,6 +83,33 @@ export class API<TModel extends Model = never, ControllerRequest extends Request
           return res.status(500).json({
             message: `Internal Server Error: ${error}`,
           })
+        }
+      }
+    }
+  }
+
+  private static shouldRunFilter(filter: FilterConfig, action: Actions): boolean {
+    if (filter.only && !filter.only.includes(action)) {
+      return false
+    }
+    if (filter.except && filter.except.includes(action)) {
+      return false
+    }
+    return true
+  }
+
+  private static async runFilters(
+    instance: API,
+    filters: FilterConfig[],
+    action: Actions
+  ): Promise<void> {
+    for (const filter of filters) {
+      if (this.shouldRunFilter(filter, action)) {
+        const method = (instance as any)[filter.method]
+        if (typeof method === "function") {
+          await method.call(instance)
+        } else {
+          logger.warn(`Filter method '${filter.method}' not found on controller`)
         }
       }
     }
@@ -195,6 +246,50 @@ export class API<TModel extends Model = never, ControllerRequest extends Request
     }
 
     return [...nonOverridableOrder, ...orderQuery, ...overridableOrder]
+  }
+
+  // Response helpers
+
+  /**
+   * Renders JSON response with optional status code
+   * Rails equivalent: render json: data, status: :ok
+   *
+   * @example
+   * return this.render({ user }, 'created')
+   * return this.render({ error: 'Not found' }, 404)
+   */
+  protected render(
+    data: Record<string, unknown> | unknown[],
+    status: HttpStatusSymbol | HttpStatusCode = "ok"
+  ) {
+    const statusCode = toStatusCode(status)
+    return this.response.status(statusCode).json(data)
+  }
+
+  /**
+   * Sends empty response with status code
+   * Rails equivalent: head :not_found
+   *
+   * @example
+   * return this.head('no_content')
+   * return this.head(404)
+   */
+  protected head(status: HttpStatusSymbol | HttpStatusCode) {
+    const statusCode = toStatusCode(status)
+    return this.response.status(statusCode).send()
+  }
+
+  /**
+   * Redirects to specified path with optional status code
+   * Rails equivalent: redirect_to path, status: :found
+   *
+   * @example
+   * return this.redirect('/users', 'found')
+   * return this.redirect('/login', 302)
+   */
+  protected redirect(path: string, status: HttpStatusSymbol | HttpStatusCode = "found") {
+    const statusCode = toStatusCode(status)
+    return this.response.redirect(statusCode, path)
   }
 
   private determineLimit(perPage: number) {
