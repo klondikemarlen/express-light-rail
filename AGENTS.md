@@ -2,9 +2,9 @@
 
 ## Purpose
 
-`express-light-rail` is an installable TypeScript package that centralizes Rails-like backend primitives for Express applications. It should provide the boring framework layer that host apps can install instead of reimplementing controller, policy, service, and request-helper patterns.
+`express-light-rail` is an installable TypeScript package that centralizes Rails-like backend primitives for Express applications. It should provide the boring framework layer that host apps can install instead of reimplementing controller, policy, service, serializer, job, and request-helper patterns.
 
-Keep the package focused. Host applications own their domain models, serializers, routes, jobs, integrations, and database setup. This package owns reusable Express-over-TypeScript conventions.
+Keep the package focused. Host applications own their domain models, concrete routes, integrations, queue workers, and database setup. This package owns reusable Express-over-TypeScript conventions.
 
 ## Current Package Surface
 
@@ -12,6 +12,8 @@ Keep the package focused. Host applications own their domain models, serializers
 - `BaseApiError` - structured API error shape: `{ error: { code, msg, meta } }`.
 - `BasePolicy` and `PolicyFactory` - Rails/Pundit-like action checks, policy scopes, and permitted attributes.
 - `BaseService` - service object base with `ServiceName.perform(args)` call-site ergonomics.
+- `BaseSerializer` - response serializer base with single-record/array `.perform` and preload checks.
+- `BaseJob` - configurable ActiveJob-like base with `perform`, `performNow`, `performLater`, and `queueAs`.
 - Controller helpers - `buildWhere`, `buildFilterScopes`, `buildOrder`, `buildPagination`, `determineLimit`.
 - `deepPick` - nested permitted-attribute picker used by policies.
 
@@ -53,6 +55,19 @@ Service responsibilities:
 - Put business logic and multi-step mutations in services.
 - Call services via `ServiceName.perform(args)`.
 - Prefer per-action service classes for operations that will grow.
+
+Serializer responsibilities:
+
+- Own API response shape, not persistence or authorization.
+- Use `AsIndex`, `AsShow`, and `AsReference` output type names.
+- Destructure required associations first, then fail with explicit preload errors.
+- Serialize nested associations into named locals before the final returned object.
+
+Job responsibilities:
+
+- Put asynchronous work behind `JobName.perform(...)` and `JobName.performLater(...)`.
+- Configure host-owned queue persistence with `JobBackend`.
+- Keep pub/sub channels and workers in the host application until a reusable abstraction is proven.
 
 Route design:
 

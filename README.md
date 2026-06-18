@@ -32,7 +32,9 @@ Route → Controller → Policy → Service → Model → Serializer → Respons
   and `destroy`.
 - Policies keep authorization and permitted attributes out of controllers.
 - Services hold business logic and multi-step mutations behind `ServiceName.perform(args)`.
-- Serializers stay in the host application; this package only provides the backend primitives.
+- Serializers own response shape, association preload checks, and list/detail/reference views.
+- Jobs provide `perform`, `performNow`, `performLater`, and `queueAs` without choosing a queue
+  backend for the host application.
 
 For custom actions, prefer namespaced CRUD controllers over one-off verbs:
 
@@ -43,6 +45,21 @@ router
 ```
 
 That shape keeps routes searchable and lets controllers stay small.
+
+## Conventions from sibling apps
+
+These conventions are intentionally aligned with WRAP, travel-authorization, and ELCC-style APIs:
+
+- Keep the main request path explicit: controller → policy → service → serializer.
+- Use serializer output types named like `UserAsIndex`, `UserAsShow`, and `UserAsReference`.
+- Destructure required associations at the top of serializers, then fail with an explicit preload
+  message before building the response.
+- Serialize nested associations into named locals before the final returned object.
+- Put complex database reads in query objects in the host app; expose reusable request helper
+  primitives from this package.
+- Treat front-end API contract types as a separate layer. This package exports backend primitives
+  that make those contracts stable, but it does not own Vue/React component patterns.
+
 
 ## Example
 
@@ -72,7 +89,7 @@ export class UsersPolicy extends PolicyFactory<User, User>(User) {
   }
 }
 
-export class CreateUserService extends BaseService {
+export class CreateUserService extends BaseService<Promise<User>> {
   constructor(private attributes: Partial<User>) {
     super()
   }
@@ -94,6 +111,71 @@ export class UsersController extends API<User, ControllerRequest> {
     })
   }
 }
+```
+
+## Serializer example
+
+```ts
+import { BaseSerializer } from "express-light-rail"
+
+type UserAsShow = {
+  id: number
+  name: string
+  organization: {
+    id: number
+    name: string
+  }
+}
+
+export class ShowSerializer extends BaseSerializer<User, UserAsShow> {
+  perform(): UserAsShow {
+    const organization = this.requiredAssociation(
+      this.record.organization,
+      "Expected user organization association to be preloaded."
+    )
+
+    return {
+      id: this.record.id,
+      name: this.record.name,
+      organization: {
+        id: organization.id,
+        name: organization.name,
+      },
+    }
+  }
+}
+```
+
+## Job example
+
+```ts
+import { BaseJob, type JobBackend, type JobPayload } from "express-light-rail"
+
+const backend: JobBackend = {
+  enqueue(payload: JobPayload) {
+    return BackgroundJob.create({
+      queueName: payload.queueName,
+      jobName: payload.jobName,
+      jobData: payload.jobData,
+    })
+  },
+}
+
+export class SendWelcomeEmailJob extends BaseJob<void> {
+  static override queueName = "mailers"
+
+  constructor(private readonly userId: number) {
+    super()
+  }
+
+  perform(): void {
+    // send email
+  }
+}
+
+SendWelcomeEmailJob.configure({ backend })
+await SendWelcomeEmailJob.performLater(1)
+await SendWelcomeEmailJob.queueAs("slow-mailers").performLater(1)
 ```
 
 ## Development
