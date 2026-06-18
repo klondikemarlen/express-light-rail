@@ -1,11 +1,11 @@
-export abstract class BaseService {
-  static perform<TService extends BaseService, TConstructorArgs extends unknown[]>(
-    this: new (...args: TConstructorArgs) => TService,
+export abstract class BaseService<TResult = unknown> {
+  static perform<TResult, TConstructorArgs extends unknown[]>(
+    this: new (...args: TConstructorArgs) => BaseService<TResult>,
     ...args: TConstructorArgs
-  ): ReturnType<TService["perform"]> {
+  ): TResult {
     const instance = new this(...args)
-    return instance.perform() as ReturnType<TService["perform"]>
+    return instance.perform()
   }
 
-  abstract perform(): unknown
+  abstract perform(): TResult
 }
