@@ -6,7 +6,8 @@
     "paths": {
       "@/*": ["./src/*"],
       "@tests/*": ["./tests/*"],
-      "@example-app/*": ["./example-app/*"]
+      "@example-app/*": ["./example-app/*"],
+      "express-light-rail": ["./src/index.ts"]
     },
     "typeRoots": ["../node_modules/@types", "../@types", "./@types"],
     "types": ["node", "../vitest/globals"]

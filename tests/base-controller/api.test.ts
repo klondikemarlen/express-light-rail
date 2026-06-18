@@ -3,7 +3,7 @@ import request from "supertest"
 
 import { testWithCustomLogLevel } from "@tests/support/index.js"
 
-import API, { BaseApiError } from "@/base-controller/api.js"
+import { API, BaseApiError } from "@/base-controller/api.js"
 
 describe("src/base-controller/api.ts", () => {
   describe("API", () => {
@@ -26,7 +26,11 @@ describe("src/base-controller/api.ts", () => {
         // Assert
         expect(response.status).toBe(500)
         expect(response.body).toMatchObject({
-          message: "Not Implemented",
+          error: {
+            code: "not_implemented",
+            msg: "Not Implemented",
+            meta: {},
+          },
         })
       })
     })
@@ -44,7 +48,11 @@ describe("src/base-controller/api.ts", () => {
         // Assert
         expect(response.status).toBe(500)
         expect(response.body).toMatchObject({
-          message: "Not Implemented",
+          error: {
+            code: "not_implemented",
+            msg: "Not Implemented",
+            meta: {},
+          },
         })
       })
     })
@@ -62,7 +70,11 @@ describe("src/base-controller/api.ts", () => {
         // Assert
         expect(response.status).toBe(500)
         expect(response.body).toMatchObject({
-          message: "Not Implemented",
+          error: {
+            code: "not_implemented",
+            msg: "Not Implemented",
+            meta: {},
+          },
         })
       })
     })
@@ -80,7 +92,11 @@ describe("src/base-controller/api.ts", () => {
         // Assert
         expect(response.status).toBe(500)
         expect(response.body).toMatchObject({
-          message: "Not Implemented",
+          error: {
+            code: "not_implemented",
+            msg: "Not Implemented",
+            meta: {},
+          },
         })
       })
     })
@@ -100,19 +116,50 @@ describe("src/base-controller/api.ts", () => {
           // Assert
           expect(response.status).toBe(500)
           expect(response.body).toMatchObject({
-            message: "Not Implemented",
+            error: {
+              code: "not_implemented",
+              msg: "Not Implemented",
+              meta: {},
+            },
           })
         }
       )
     })
 
+    describe(".buildOrder", () => {
+      test("when query and defaults repeat a column, it keeps the highest priority order", () => {
+        // Arrange
+        const controller = new API(
+          {
+            query: {
+              order: [
+                ["name", "DESC"],
+                ["id", "DESC"],
+              ],
+            },
+          } as unknown as express.Request,
+          {} as express.Response,
+          (() => undefined) as express.NextFunction
+        )
+
+        // Act
+        const result = controller.buildOrder(
+          [["name", "ASC"]],
+          [["id", "ASC"]]
+        )
+
+        // Assert
+        expect(result).toEqual([
+          ["id", "ASC"],
+          ["name", "DESC"],
+        ])
+      })
+    })
+
     describe("error handling", () => {
       class ValidationError extends BaseApiError {
-        constructor(
-          message: string,
-          public statusCode: number = 400
-        ) {
-          super(message, statusCode)
+        constructor(message: string) {
+          super("validation_failed", message, { field: "someAttribute" }, 400)
         }
       }
 
@@ -134,7 +181,13 @@ describe("src/base-controller/api.ts", () => {
         // Assert
         expect(response.status).toBe(400)
         expect(response.body).toMatchObject({
-          message: "Missing some attribute",
+          error: {
+            code: "validation_failed",
+            msg: "Missing some attribute",
+            meta: {
+              field: "someAttribute",
+            },
+          },
         })
       })
     })

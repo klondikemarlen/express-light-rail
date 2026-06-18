@@ -1,11 +1,11 @@
 import { NextFunction, Request, Response } from "express"
 import { Attributes, Model, Order, WhereOptions } from "@sequelize/core"
-import { isEmpty, isNil } from "lodash"
+import { dropRight, isEmpty, isNil, uniqBy } from "lodash"
 
-import logger from "@/utils/logger.js"
+import { logger } from "@/utils/logger.js"
 
 import { type BaseScopeOptions } from "@/base-policy/index.js"
-import BaseApiError from "@/base-controller/base-api-error.js"
+import { BaseApiError } from "@/base-controller/base-api-error.js"
 
 export { BaseApiError }
 
@@ -51,13 +51,15 @@ export class API<TModel extends Model = never, ControllerRequest extends Request
       } catch (error: unknown) {
         if (error instanceof BaseApiError) {
           logger.error(error.message, { error })
-          return res.status(error.statusCode).json({
-            message: error.message,
-          })
+          return res.status(error.statusCode).json(error.toJSON())
         } else {
           logger.error(`Internal Server Error: ${error}`, { error })
           return res.status(500).json({
-            message: `Internal Server Error: ${error}`,
+            error: {
+              code: "internal_server_error",
+              msg: `Internal Server Error: ${error}`,
+              meta: {},
+            },
           })
         }
       }
@@ -115,23 +117,23 @@ export class API<TModel extends Model = never, ControllerRequest extends Request
   }
 
   async index(): Promise<unknown> {
-    throw new BaseApiError("Not Implemented")
+    throw new BaseApiError("not_implemented", "Not Implemented")
   }
 
   async create(): Promise<unknown> {
-    throw new BaseApiError("Not Implemented")
+    throw new BaseApiError("not_implemented", "Not Implemented")
   }
 
   async show(): Promise<unknown> {
-    throw new BaseApiError("Not Implemented")
+    throw new BaseApiError("not_implemented", "Not Implemented")
   }
 
   async update(): Promise<unknown> {
-    throw new BaseApiError("Not Implemented")
+    throw new BaseApiError("not_implemented", "Not Implemented")
   }
 
   async destroy(): Promise<unknown> {
-    throw new BaseApiError("Not Implemented")
+    throw new BaseApiError("not_implemented", "Not Implemented")
   }
 
   // Internal helpers
@@ -194,7 +196,11 @@ export class API<TModel extends Model = never, ControllerRequest extends Request
       return [...nonOverridableOrder, ...overridableOrder]
     }
 
-    return [...nonOverridableOrder, ...orderQuery, ...overridableOrder]
+    const order = [...nonOverridableOrder, ...orderQuery, ...overridableOrder]
+    return uniqBy(order, (orderItem) => {
+      const orderExcludingDirection = dropRight(orderItem)
+      return orderExcludingDirection.join(".").toLowerCase()
+    })
   }
 
   private determineLimit(perPage: number) {
@@ -206,4 +212,3 @@ export class API<TModel extends Model = never, ControllerRequest extends Request
   }
 }
 
-export default API

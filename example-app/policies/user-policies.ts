@@ -1,9 +1,9 @@
+import { PolicyFactory } from "express-light-rail"
 
 import { User } from "@example-app/models/index.js"
-import ApplicationPolicy from "@example-app/policies/application-policy.js"
 
-export class UserPolicies extends ApplicationPolicy<User> {
+const UserPolicy = PolicyFactory<User, User>(User)
+
+export class UserPolicies extends UserPolicy {
   // TODO
 }
-
-export default UserPolicies

@@ -10,4 +10,3 @@ export const consoleLogger = createLogger({
 
 export const logger = consoleLogger
 
-export default logger

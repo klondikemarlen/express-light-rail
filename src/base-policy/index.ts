@@ -5,4 +5,5 @@ export {
   ALL_RECORDS_SCOPE,
   POLICY_SCOPE_NAME,
   BasePolicy,
+  PolicyFactory,
 } from "./base-policy.js"

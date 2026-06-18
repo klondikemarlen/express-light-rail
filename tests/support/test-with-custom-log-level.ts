@@ -1,4 +1,4 @@
-import logger from "@/utils/logger.js"
+import { logger } from "@/utils/logger.js"
 
 function setLogLevel(level: string) {
   logger.level = level

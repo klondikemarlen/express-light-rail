@@ -1,9 +1,9 @@
-import { Address } from "@example-app/models/index.js"
-import ApplicationPolicy from "@example-app/policies/application-policy.js"
+import { PolicyFactory } from "express-light-rail"
 
-export class AddressPolicies extends ApplicationPolicy<Address> {
-  static modelClass = Address
+import { Address, User } from "@example-app/models/index.js"
+
+const AddressPolicy = PolicyFactory<Address, User>(Address)
+
+export class AddressPolicies extends AddressPolicy {
   // TODO
 }
-
-export default AddressPolicies
