@@ -1,6 +1,6 @@
 # express-light-rail (a.k.a. Express like Rails)
 
-Rails-inspired controller, policy, and service primitives for Express applications.
+Rails-inspired controller, policy, service, serializer, and job primitives for Express applications.
 
 If you are asking yourself, "Should I be using Rails instead?", the answer is yes. This
 library is a focused shim for teams that need Express and TypeScript but still want a few
@@ -19,6 +19,14 @@ npm install express @sequelize/core
 ```
 
 The package publishes ESM and CommonJS builds from `dist/`, plus TypeScript declarations.
+
+Detailed convention docs live beside the source:
+
+- [`src/base-controller/README.md`](src/base-controller/README.md)
+- [`src/base-policy/README.md`](src/base-policy/README.md)
+- [`src/base-service/README.md`](src/base-service/README.md)
+- [`src/base-serializer/README.md`](src/base-serializer/README.md)
+- [`src/base-job/README.md`](src/base-job/README.md)
 
 ## Concepts
 
