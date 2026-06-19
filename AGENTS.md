@@ -104,6 +104,8 @@ Docker wrapper scripts may exist for local development, but they are not require
 - Publish ESM, CommonJS, and TypeScript declarations from `dist/`.
 - Keep Express and Sequelize as peer dependencies so host applications control their framework and ORM versions.
 - Do not publish generated scaffolds or app-specific code.
+- Before publishing, run `npm whoami`, `npm view express-light-rail version`, `npm pack --dry-run --json`, and then `npm publish`.
+- Use `npm version <patch|minor|major> -m ":bookmark: Release %s."` so the version bump and tag stay standard.
 
 ## Commits
 

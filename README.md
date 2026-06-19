@@ -231,18 +231,39 @@ This repo still has the local `bin/dev` wrapper, but Docker is optional for pack
 
 ## Publishing
 
-1. Generate a new version:
+Publishing is intentionally boring npm:
+
+1. Confirm you are authenticated:
 
    ```bash
-   npm version patch -m "some message"
-   npm version minor -m "some message"
-   npm version major -m "some message"
+   npm whoami
    ```
 
-2. Publish to npm:
+2. Confirm the registry version and choose the next semver version:
+
+   ```bash
+   npm view express-light-rail version
+   ```
+
+3. Generate a version commit and tag:
+
+   ```bash
+   npm version patch -m ":bookmark: Release %s."
+   npm version minor -m ":bookmark: Release %s."
+   npm version major -m ":bookmark: Release %s."
+   ```
+
+4. Publish:
 
    ```bash
    npm publish
    ```
 
-`prepublishOnly` runs type checks, the Vitest suite, and the package build.
+5. Push the version commit and tag:
+
+   ```bash
+   git push origin main --follow-tags
+   ```
+
+`prepublishOnly` runs type checks, the Vitest suite, and the package build. Run
+`npm pack --dry-run --json` first when changing package contents.
