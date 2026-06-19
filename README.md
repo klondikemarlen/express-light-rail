@@ -29,34 +29,27 @@ Route → Controller → Policy → Service → Model → Serializer → Respons
 ```
 
 - Controllers map resource routes to instance actions: `index`, `show`, `create`, `update`,
-  and `destroy`.
-- Router helpers mount the standard RESTful route shape without hiding Express' `Router`.
+  and `destroy`, while route files stay normal Express `router.route(...).get(...).post(...)`
+  declarations.
 - Policies keep authorization and permitted attributes out of controllers.
 - Services hold business logic and multi-step mutations behind `ServiceName.perform(args)`.
 - Serializers own response shape, association preload checks, and list/detail/reference views.
 - Jobs provide `perform`, `performNow`, `performLater`, and `queueAs` without choosing a queue
   backend for the host application.
 
-For custom actions, prefer namespaced CRUD controllers over one-off verbs:
+Routes should stay visibly Express-shaped. `express-light-rail` gives controllers Rails-like
+instance actions, but it does not hide `Router` behind a DSL:
 
 ```ts
+router.route("/api/users").get(UsersController.index).post(UsersController.create)
+
 router
   .route("/api/forms/:formId/estimates/generate")
   .post(Forms.Estimates.GenerateController.create)
 ```
 
-That shape keeps routes searchable and lets controllers stay small.
-
-For ordinary CRUD resources, use `resourceRoutes` to keep route files short while staying inside
-Express' native router API:
-
-```ts
-import { resourceRoutes } from "express-light-rail"
-
-resourceRoutes(router, "/api/users", UsersController, {
-  idParam: "userId",
-})
-```
+The second route is still a `create` action on a namespaced controller. That keeps migration
+small for Express users while nudging route design toward Rails resources.
 
 
 ## Conventions from sibling apps
@@ -77,8 +70,8 @@ These conventions are intentionally aligned with WRAP, travel-authorization, and
 
 The next host-agnostic pieces worth extracting from WRAP, travel-authorization, and ELCC are:
 
-- API router middleware: shared 404 and error-handler factories that preserve host-specific
-  authentication and database error mapping.
+- API router middleware: shared 404 and error-handler factories that preserve Express routing and
+  host-specific authentication/database error mapping.
 - Query conventions: small helpers for naming, composing, and testing SQL literal builders without
   forcing class-based query objects.
 - Job argument serialization: optional Sequelize model argument serialization for `BaseJob`, while
