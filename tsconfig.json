@@ -18,6 +18,7 @@
     "declaration": true,
     "incremental": true,
     "outDir": "./dist",
+    "tsBuildInfoFile": "./node_modules/.cache/express-light-rail/tsconfig.tsbuildinfo",
     "sourceMap": true,
 
     /* Type Checking */
