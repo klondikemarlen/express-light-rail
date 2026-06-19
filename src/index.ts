@@ -32,9 +32,18 @@ export {
   type JobBackend,
   type JobPayload,
 } from "./base-job/index.js"
+export {
+  collectionActions,
+  memberActions,
+  resourceRoutes,
+  type ResourceController,
+  type ResourceRouteAction,
+  type ResourceRoutesOptions,
+} from "./base-router/index.js"
 export { deepPick, type Path } from "./utils/deep-pick.js"
 
 export * as BaseController from "./base-controller/index.js"
 export * as BasePolicies from "./base-policy/index.js"
 export * as BaseSerializers from "./base-serializer/index.js"
 export * as BaseJobs from "./base-job/index.js"
+export * as BaseRouter from "./base-router/index.js"
