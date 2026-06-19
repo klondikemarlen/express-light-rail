@@ -14,6 +14,7 @@ Keep the package focused. Host applications own their domain models, concrete ro
 - `BaseService` - service object base with `ServiceName.perform(args)` call-site ergonomics.
 - `BaseSerializer` - response serializer base with single-record/array `.perform` and preload checks.
 - `BaseJob` - configurable ActiveJob-like base with `perform`, `performNow`, `performLater`, and `queueAs`.
+- `resourceRoutes` - Express router helper for standard RESTful collection/member routes.
 - Controller helpers - `buildWhere`, `buildFilterScopes`, `buildOrder`, `buildPagination`, `determineLimit`.
 - `deepPick` - nested permitted-attribute picker used by policies.
 
@@ -73,6 +74,8 @@ Route design:
 
 - Prefer namespaced CRUD controllers over custom verbs on large controllers.
 - Example: `Forms.Estimates.GenerateController.create` for `POST /api/forms/:formId/estimates/generate`.
+- Use `resourceRoutes(router, path, Controller)` for ordinary RESTful resources.
+- Keep custom state transitions as namespaced CRUD controllers, not methods on the primary controller.
 
 ## Tests
 

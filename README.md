@@ -30,6 +30,7 @@ Route → Controller → Policy → Service → Model → Serializer → Respons
 
 - Controllers map resource routes to instance actions: `index`, `show`, `create`, `update`,
   and `destroy`.
+- Router helpers mount the standard RESTful route shape without hiding Express' `Router`.
 - Policies keep authorization and permitted attributes out of controllers.
 - Services hold business logic and multi-step mutations behind `ServiceName.perform(args)`.
 - Serializers own response shape, association preload checks, and list/detail/reference views.
@@ -46,6 +47,18 @@ router
 
 That shape keeps routes searchable and lets controllers stay small.
 
+For ordinary CRUD resources, use `resourceRoutes` to keep route files short while staying inside
+Express' native router API:
+
+```ts
+import { resourceRoutes } from "express-light-rail"
+
+resourceRoutes(router, "/api/users", UsersController, {
+  idParam: "userId",
+})
+```
+
+
 ## Conventions from sibling apps
 
 These conventions are intentionally aligned with WRAP, travel-authorization, and ELCC-style APIs:
@@ -59,6 +72,22 @@ These conventions are intentionally aligned with WRAP, travel-authorization, and
   primitives from this package.
 - Treat front-end API contract types as a separate layer. This package exports backend primitives
   that make those contracts stable, but it does not own Vue/React component patterns.
+
+## Extraction roadmap
+
+The next host-agnostic pieces worth extracting from WRAP, travel-authorization, and ELCC are:
+
+- API router middleware: shared 404 and error-handler factories that preserve host-specific
+  authentication and database error mapping.
+- Query conventions: small helpers for naming, composing, and testing SQL literal builders without
+  forcing class-based query objects.
+- Job argument serialization: optional Sequelize model argument serialization for `BaseJob`, while
+  keeping queue persistence and workers host-owned.
+- Front-end API contracts: shared TypeScript query/envelope types that mirror controller helper
+  behavior without pulling in Vue or React.
+
+Keep these out until they remove duplicated code in at least two host apps. Pub/sub channels,
+workers, Auth0/JWT details, and app bootstrapping still belong in host applications.
 
 
 ## Example
