@@ -11,12 +11,18 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
+    },
+    "./contracts": {
+      "types": "./dist/contracts/index.d.ts",
+      "import": "./dist/contracts/index.js",
+      "require": "./dist/contracts/index.cjs"
     }
   },
   "files": [
     "dist",
     "LICENSE",
     "README.md",
+    "docs/**/*.md",
     "src/**/*.md"
   ],
   "scripts": {
