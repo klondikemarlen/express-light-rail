@@ -1,5 +1,6 @@
 /// <reference types="vitest/config" />
 
+import { writeFile } from "node:fs/promises"
 import { resolve } from "node:path"
 
 import { defineConfig } from "vite"
@@ -47,6 +48,10 @@ export default defineConfig({
     }),
     dts({
       include: ["src/**/*.ts"],
+      outDir: ["dist", "dist/commonjs"],
+      async afterBuild() {
+        await writeFile(resolve(__dirname, "dist/commonjs/package.json"), '{"type":"commonjs"}\n')
+      },
     }),
   ],
   test: {

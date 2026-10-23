@@ -8,29 +8,54 @@
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js",
-      "require": "./dist/index.cjs"
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/commonjs/index.d.ts",
+        "default": "./dist/index.cjs"
+      }
     },
     "./contracts": {
-      "types": "./dist/contracts/index.d.ts",
-      "import": "./dist/contracts/index.js",
-      "require": "./dist/contracts/index.cjs"
+      "import": {
+        "types": "./dist/contracts/index.d.ts",
+        "default": "./dist/contracts/index.js"
+      },
+      "require": {
+        "types": "./dist/commonjs/contracts/index.d.ts",
+        "default": "./dist/contracts/index.cjs"
+      }
     },
     "./tooling/eslint": {
-      "types": "./dist/tooling/eslint.d.ts",
-      "import": "./dist/tooling/eslint.js",
-      "require": "./dist/tooling/eslint.cjs"
+      "import": {
+        "types": "./dist/tooling/eslint.d.ts",
+        "default": "./dist/tooling/eslint.js"
+      },
+      "require": {
+        "types": "./dist/commonjs/tooling/eslint.d.ts",
+        "default": "./dist/tooling/eslint.cjs"
+      }
     },
     "./tooling/prettier": {
-      "types": "./dist/tooling/prettier.d.ts",
-      "import": "./dist/tooling/prettier.js",
-      "require": "./dist/tooling/prettier.cjs"
+      "import": {
+        "types": "./dist/tooling/prettier.d.ts",
+        "default": "./dist/tooling/prettier.js"
+      },
+      "require": {
+        "types": "./dist/commonjs/tooling/prettier.d.ts",
+        "default": "./dist/tooling/prettier.cjs"
+      }
     },
     "./tooling/vitest": {
-      "types": "./dist/tooling/vitest.d.ts",
-      "import": "./dist/tooling/vitest.js",
-      "require": "./dist/tooling/vitest.cjs"
+      "import": {
+        "types": "./dist/tooling/vitest.d.ts",
+        "default": "./dist/tooling/vitest.js"
+      },
+      "require": {
+        "types": "./dist/commonjs/tooling/vitest.d.ts",
+        "default": "./dist/tooling/vitest.cjs"
+      }
     }
   },
   "files": [
