@@ -56,7 +56,7 @@ The legacy consumer service bases use generic inference backed by `any`; this pa
 
 ## Executable example
 
-[`example-app/`](../example-app/) is a small in-memory Express app, not a fake database adapter. It shows normal `Router` composition, demo current-user middleware, host policy, mutation service, explicit serializer, safe error middleware and policy/client-filter intersection. Run from the repository after installing peer/dev dependencies and building the package:
+[`example-app/`](https://github.com/klondikemarlen/express-light-rail/tree/main/example-app) is a small in-memory Express app, not a fake database adapter. It shows normal `Router` composition, demo current-user middleware, host policy, mutation service, explicit serializer, safe error middleware and policy/client-filter intersection. Run from a repository checkout after installing peer/dev dependencies and building the package:
 
 ```sh
 npm run example
@@ -77,11 +77,12 @@ Alice's list request returns her open private task and excludes Bob's private ta
 
 ## Consumer-shaped cutover fixtures and artifact smoke
 
-[`tests/fixtures/adoption/`](../tests/fixtures/adoption/) keeps two disposable replacements: a Travel-shaped route/controller slice using the package API action base, and an ELCC-shaped service/serializer slice using package implementations instead of copying their base mechanisms. They are not application edits, forwarding shims, or proof that those apps have adopted a release. Both type-check constructor argument forwarding, inferred synchronous/asynchronous results, and exercise a real Express request/error path; the ELCC fixture additionally verifies that a required serializer association missing from a preload fails explicitly. The route fixtures retain host-owned authentication and policy decisions.
+[`tests/fixtures/adoption/`](https://github.com/klondikemarlen/express-light-rail/tree/main/tests/fixtures/adoption) keeps two disposable replacements: a Travel-shaped route/controller slice using the package API action base, and an ELCC-shaped service/serializer slice using package implementations instead of copying their base mechanisms. They are not application edits, forwarding shims, or proof that those apps have adopted a release. Both type-check constructor argument forwarding, inferred synchronous/asynchronous results, and exercise a real Express request/error path; the ELCC fixture additionally verifies that a required serializer association missing from a preload fails explicitly. The route fixtures retain host-owned authentication and policy decisions.
 
 After the package owner has built and packed the candidate release, from the repository root run:
 
 ```sh
+npm run build
 npm pack
 tests/fixtures/adoption/smoke.sh "$(pwd)/express-light-rail-<version>.tgz"
 ```
