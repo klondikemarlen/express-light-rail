@@ -79,6 +79,13 @@ ReloadRecord.init(
       visible: {
         where: { visible: true },
       },
+      namedAda: {
+        where: { name: "Ada" },
+      },
+      rawArray: {
+        raw: true,
+        plain: false,
+      },
     },
   },
 )
@@ -132,6 +139,37 @@ describe("BaseModel", () => {
     expect(foundRecord?.name).toBe("Ada")
     expect(reloadedRecord).toBeInstanceOf(ReloadRecord)
     expect(reloadedRecord).not.toBe(record)
+  })
+
+  test("when applying consecutive scopes, it combines every filter", async () => {
+    // Arrange
+    await ReloadRecord.bulkCreate([
+      { name: "Ada", visible: true },
+      { name: "Grace", visible: true },
+      { name: "Ada", visible: false },
+    ])
+
+    // Act
+    const records = await ReloadRecord.withScope("visible", "namedAda").findAll()
+
+    // Assert
+    expect(records).toMatchObject([
+      {
+        name: "Ada",
+        visible: true,
+      },
+    ])
+  })
+
+  test("when a scope requests raw arrays, it still reloads one model instance", async () => {
+    // Arrange
+    const record = await ReloadRecord.create({ name: "Ada", visible: true })
+
+    // Act
+    const reloaded = await record.reloadWithScope("rawArray")
+
+    // Assert
+    expect(reloaded.getDataValue("name")).toBe("Ada")
   })
 
   test("when reloading a single-key record, it returns fresh scoped state", async () => {

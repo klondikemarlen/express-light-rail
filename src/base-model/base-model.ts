@@ -3,35 +3,36 @@ import {
   type Attributes,
   type FindOptions,
   type ModelStatic,
+  type ScopeOptions,
+  type WhereOptions,
 } from "@sequelize/core"
 
-type BaseModelScopes<TModel extends Model> = Parameters<
-  ModelStatic<TModel>["withScope"]
->[0]
+type BaseModelScopes<TModel extends Model> =
+  | string
+  | ScopeOptions
+  | readonly (string | ScopeOptions)[]
+  | WhereOptions<Attributes<TModel>>
+  | null
+  | undefined
 
 type ReloadWithScopeOptions<TModel extends Model> = Omit<
   FindOptions<Attributes<TModel>>,
-  "raw" | "rejectOnEmpty" | "where"
+  "plain" | "raw" | "rejectOnEmpty" | "where"
 > & {
+  plain?: true
   raw?: false
-}
-
-type BaseModelStatic<TModel extends Model> = ModelStatic<TModel> & {
-  withScope(scopes?: BaseModelScopes<TModel>): BaseModelStatic<TModel>
 }
 
 export abstract class BaseModel<
   TModelAttributes extends object = object,
   TCreationAttributes extends object = TModelAttributes,
 > extends Model<TModelAttributes, TCreationAttributes> {
-  static withScope<
-    TModel extends Model,
-    TStatic extends BaseModelStatic<TModel>,
-  >(
+  static withScope<TStatic extends ModelStatic<Model>>(
     this: TStatic,
-    scopes?: BaseModelScopes<TModel>,
+    ...scopes: BaseModelScopes<InstanceType<TStatic>>[]
   ): TStatic {
-    return Model.withScope.call(this, scopes) as TStatic
+    // Sequelize supports consecutive scopes at runtime, but declares only one argument.
+    return Reflect.apply(Model.withScope, this, scopes) as TStatic
   }
 
   /**
@@ -42,13 +43,15 @@ export abstract class BaseModel<
     scopes: BaseModelScopes<this>,
     options: ReloadWithScopeOptions<this> = {},
   ): Promise<this> {
-    const model = this.constructor as BaseModelStatic<this>
+    const model = this.constructor as ModelStatic<this>
     const scopedModel = model.withScope(scopes)
 
     return scopedModel.findOne({
       ...options,
       where: this.where(),
       rejectOnEmpty: true,
+      raw: false,
+      plain: true,
     })
   }
 }
