@@ -30,3 +30,4 @@ node -e 'const output = require("node:fs").readFileSync(process.argv[1], "utf8")
 npx prettier --config prettier.config.mjs --write src/feature.ts sql/schema.sql
 node -e 'const sql = require("node:fs").readFileSync("sql/schema.sql", "utf8"); if (!sql.includes("JSONB") || !sql.includes("::jsonb")) process.exit(1)'
 npx vitest run --config vite.config.ts
+npx vitest run --config vite.config.cjs
