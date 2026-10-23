@@ -12,6 +12,11 @@
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
     },
+    "./contracts": {
+      "types": "./dist/contracts/index.d.ts",
+      "import": "./dist/contracts/index.js",
+      "require": "./dist/contracts/index.cjs"
+    },
     "./tooling/eslint": {
       "types": "./dist/tooling/eslint.d.ts",
       "import": "./dist/tooling/eslint.js",

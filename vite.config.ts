@@ -27,6 +27,7 @@ export default defineConfig({
         "tooling/eslint": resolve(__dirname, "src/tooling/eslint.ts"),
         "tooling/prettier": resolve(__dirname, "src/tooling/prettier.ts"),
         "tooling/vitest": resolve(__dirname, "src/tooling/vitest.ts"),
+        "contracts/index": resolve(__dirname, "src/contracts/index.ts"),
       },
       name: "ExpressLightRail",
       fileName: (format, entryName) => `${entryName}.${format === "es" ? "js" : "cjs"}`,

@@ -1,0 +1,9 @@
+{
+  "name": "browser-contracts-elcc-tk",
+  "private": true,
+  "type": "module",
+  "devDependencies": {
+    "esbuild": "^0.25.0",
+    "typescript": "5.7.3"
+  }
+}

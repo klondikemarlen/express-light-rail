@@ -1,18 +1,12 @@
 import { Order } from "@sequelize/core"
 import lodash from "lodash"
 
-import { extractArray } from "./assert-utils.js"
+import { type ModelOrder as BrowserModelOrder } from "@/contracts/index.js"
+import { extractArray } from "@/base-controller/api-helpers/assert-utils.js"
 
 const { dropRight, uniqBy } = lodash
 
-export type ModelOrder = Order &
-  (
-    | [string, string]
-    | [string, string, string]
-    | [string, string, string, string]
-    | [string, string, string, string, string]
-    | [string, string, string, string, string, string]
-  )
+export type ModelOrder = Order & BrowserModelOrder
 
 export function buildOrder(
   order: unknown,
