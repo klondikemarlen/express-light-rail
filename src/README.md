@@ -17,7 +17,7 @@ Express route -> API controller -> Policy -> Service -> Model -> Serializer -> R
 - `base-service/` - service object call pattern for business operations.
 - `base-serializer/` - response shaping with explicit preload checks.
 - `base-job/` - ActiveJob-like job entry points with host-owned queue persistence.
-- `base-model/` - typed Sequelize scopes and fresh-instance scoped primary-key lookups.
+- `model-helpers/` - typed Sequelize scopes and fresh-instance scoped primary-key lookups.
 - `utils/` - small shared utilities that support the primitives.
 
 ## Design rule
