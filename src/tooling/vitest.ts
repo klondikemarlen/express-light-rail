@@ -4,11 +4,7 @@ import tsconfigPaths from "vite-tsconfig-paths"
 export function createVitestConfig(overrides: UserConfig = {}): UserConfig {
   return mergeConfig(
     {
-      plugins: [
-        tsconfigPaths({
-          projects: ["./tsconfig.json", "./tests/tsconfig.json"],
-        }),
-      ],
+      plugins: [tsconfigPaths()],
       test: {
         globals: true,
         clearMocks: true,

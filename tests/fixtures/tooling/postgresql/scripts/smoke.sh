@@ -29,5 +29,6 @@ fi
 node -e 'const output = require("node:fs").readFileSync(process.argv[1], "utf8"); if (!output.includes("@typescript-eslint/no-unused-vars")) process.exit(1)' "$temporary_dir/lint-output.txt"
 npx prettier --config prettier.config.mjs --write src/feature.ts sql/schema.sql
 node -e 'const sql = require("node:fs").readFileSync("sql/schema.sql", "utf8"); if (!sql.includes("JSONB") || !sql.includes("::jsonb")) process.exit(1)'
-npx vitest run --config vite.config.ts
-npx vitest run --config vite.config.cjs
+npx vitest run --config vite.config.ts 2>&1 | tee "$temporary_dir/esm-vitest.log"
+npx vitest run --config vite.config.cjs 2>&1 | tee "$temporary_dir/cjs-vitest.log"
+node -e 'const fs = require("node:fs"); for (const file of process.argv.slice(1)) { if (fs.readFileSync(file, "utf8").includes("TSConfckParseError")) throw new Error("Host tsconfig discovery failed") }' "$temporary_dir/esm-vitest.log" "$temporary_dir/cjs-vitest.log"
