@@ -24,9 +24,9 @@ export default defineConfig({
     lib: {
       entry: {
         index: resolve(__dirname, "src/index.ts"),
-        "tooling/eslint": resolve(__dirname, "tooling/eslint.ts"),
-        "tooling/prettier": resolve(__dirname, "tooling/prettier.ts"),
-        "tooling/vitest": resolve(__dirname, "tooling/vitest.ts"),
+        "tooling/eslint": resolve(__dirname, "src/tooling/eslint.ts"),
+        "tooling/prettier": resolve(__dirname, "src/tooling/prettier.ts"),
+        "tooling/vitest": resolve(__dirname, "src/tooling/vitest.ts"),
       },
       name: "ExpressLightRail",
       fileName: (format, entryName) => `${entryName}.${format === "es" ? "js" : "cjs"}`,
@@ -42,7 +42,7 @@ export default defineConfig({
       projects: ["./tsconfig.json", "./tests/tsconfig.json"],
     }),
     dts({
-      include: ["src/**/*.ts", "tooling/**/*.ts"],
+      include: ["src/**/*.ts"],
     }),
   ],
   test: {
