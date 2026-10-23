@@ -1,5 +1,6 @@
 #!/bin/sh
 set -eu
+export npm_config_engine_strict=true
 
 PACKAGE_TGZ=${1:?Usage: smoke.sh /absolute/path/to/express-light-rail-<version>.tgz}
 case "$PACKAGE_TGZ" in

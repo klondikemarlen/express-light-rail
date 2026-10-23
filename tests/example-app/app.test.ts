@@ -70,6 +70,34 @@ describe("runnable Express adoption example", () => {
     })
   })
 
+  test("when JSON cannot be parsed, the host preserves its client error status", async () => {
+    // Arrange
+    const route = request(app).post("/api/tasks").set("Content-Type", "application/json").send("{")
+
+    // Act
+    const response = await route
+
+    // Assert
+    expect(response.status).toBe(400)
+    expect(response.body).toEqual({
+      error: { code: "invalid_request", msg: "Invalid request", meta: {} },
+    })
+  })
+
+  test("when the JSON body exceeds its limit, the host preserves payload-too-large status", async () => {
+    // Arrange
+    const route = request(app).post("/api/tasks").send({ title: "x".repeat(110000) })
+
+    // Act
+    const response = await route
+
+    // Assert
+    expect(response.status).toBe(413)
+    expect(response.body).toEqual({
+      error: { code: "invalid_request", msg: "Invalid request", meta: {} },
+    })
+  })
+
   test("when route work fails unexpectedly, the response hides its error message", async () => {
     // Arrange
     const route = request(app).get("/api/tasks").set("x-user-id", "alice").query({ fail: "true" })
