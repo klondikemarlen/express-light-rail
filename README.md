@@ -6,6 +6,8 @@ If you are asking yourself, "Should I be using Rails instead?", the answer is ye
 library is a focused shim for teams that need Express and TypeScript but still want a few
 boring Rails conventions.
 
+Adopt one primitive at a time. Keep your Express application, routers, middleware, and unmigrated handlers; controllers, policies, services, serializers, and jobs are independent building blocks, not an all-or-nothing framework.
+
 ## Install
 
 ```bash
@@ -74,12 +76,57 @@ These conventions are intentionally aligned with WRAP, travel-authorization, and
 - Treat front-end API contract types as a separate layer. This package exports backend primitives
   that make those contracts stable, but it does not own Vue/React component patterns.
 
+## API error handling
+
+Error handling is opt-in and stays in Express middleware order. Keep ordinary Express routes, then add the package handlers around the API routes without changing policies, services, or database error conventions:
+
+```ts
+import express, { Router } from "express"
+import { BaseApiError, createApiErrorHandler, createApiNotFoundHandler } from "express-light-rail"
+
+const app = express()
+const api = Router()
+
+api.get("/users/:id", (request, response) => {
+  response.json({ id: request.params.id })
+})
+
+app.use("/api", api)
+app.use("/api", createApiNotFoundHandler())
+app.use("/api", createApiErrorHandler())
+app.use(express.static("public"))
+```
+
+Install the API 404 immediately after the API router so an unknown `/api` path does not fall through to a static file or SPA fallback. Install the error handler after routes and controllers. The package handler preserves the public `BaseApiError` status and body, and maps unknown errors to a generic `internal_server_error` response without internal messages or stacks. You can instead keep your existing Express error middleware in that position and omit `createApiErrorHandler()`.
+
+The optional hooks keep logging and public error classification host-owned. Both hooks run synchronously and receive the original error and Express request. Return `undefined` from `classifyError` to retain the standard mapping. Map only errors whose public meaning you know; do not copy arbitrary `.message` values into a response:
+
+```ts
+app.use(
+  "/api",
+  createApiErrorHandler({
+    onError(error, request) {
+      logger.error("API request failed", {
+        error,
+        method: request.method,
+        path: request.originalUrl,
+      })
+    },
+    classifyError(error) {
+      if (error instanceof HostRecordMissingError) {
+        return new BaseApiError("record_not_found", "Record Not Found", {}, 404)
+      }
+    },
+  })
+)
+```
+
+Adopt incrementally: first install the handlers around existing Express routes, then move individual routes to `API` controllers when useful. Since 0.4.0, controllers call `next(error)` instead of responding or logging internally, so install the package handler or retain a host error handler before upgrading controller-based routes. Errors after response headers have been sent are delegated to the next Express error handler.
+
 ## Extraction roadmap
 
 The next host-agnostic pieces worth extracting from WRAP, travel-authorization, and ELCC are:
 
-- API router middleware: shared 404 and error-handler factories that preserve Express routing and
-  host-specific authentication/database error mapping.
 - Query conventions: small helpers for naming, composing, and testing SQL literal builders without
   forcing class-based query objects.
 - Job argument serialization: optional Sequelize model argument serialization for `BaseJob`, while
@@ -89,7 +136,6 @@ The next host-agnostic pieces worth extracting from WRAP, travel-authorization, 
 
 Keep these out until they remove duplicated code in at least two host apps. Pub/sub channels,
 workers, Auth0/JWT details, and app bootstrapping still belong in host applications.
-
 
 ## Example
 
