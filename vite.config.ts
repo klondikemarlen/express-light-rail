@@ -34,6 +34,9 @@ export default defineConfig({
     },
     rollupOptions: {
       external: externalDependencies,
+      output: {
+        interop: "auto",
+      },
     },
   },
   plugins: [
