@@ -1,4 +1,5 @@
 import { Router } from "express"
+import { createApiErrorHandler, createApiNotFoundHandler } from "express-light-rail"
 
 import { UsersController } from "@example-app/controllers/index.js"
 
@@ -10,3 +11,6 @@ router
   .get(UsersController.show)
   .patch(UsersController.update)
   .delete(UsersController.destroy)
+
+router.use("/api", createApiNotFoundHandler())
+router.use("/api", createApiErrorHandler())

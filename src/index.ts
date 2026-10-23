@@ -33,6 +33,11 @@ export {
   type JobPayload,
 } from "./base-job/index.js"
 export { deepPick, type Path } from "./utils/deep-pick.js"
+export {
+  createApiErrorHandler,
+  createApiNotFoundHandler,
+  type ApiErrorHandlerOptions,
+} from "./middlewares/index.js"
 
 export * as BaseController from "./base-controller/index.js"
 export * as BasePolicies from "./base-policy/index.js"
