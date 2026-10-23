@@ -1,0 +1,20 @@
+{
+  "name": "tooling-tsql-fixture",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "smoke": "bash scripts/smoke.sh"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.20.0",
+    "eslint": "^9.20.1",
+    "eslint-config-prettier": "^10.0.1",
+    "prettier": "^3.5.0",
+    "prettier-plugin-sql": "^0.19.2",
+    "typescript": "^5.7.3",
+    "typescript-eslint": "^8.24.0",
+    "vite": "^5.4.21",
+    "vite-tsconfig-paths": "^5.1.4",
+    "vitest": "^2.1.8"
+  }
+}

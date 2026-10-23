@@ -1,78 +1,24 @@
-# API service Tests
+# Tests and development tooling
 
-## Implementation
+This package uses Vitest, not Jest. The root `test` script runs Vitest; `npm run test -- --run` performs a non-watch run. The root Vite config uses `tests/global-setup.ts` for process-level setup and `tests/setup.ts` for test setup, with test globals enabled. The global setup owns database startup/cleanup where needed; test setup installs per-test hooks. Its mock clearing, reset, restore, and stub cleanup behavior is configured in `vite.config.ts`.
 
-Tests are written in [jest](https://jestjs.io/docs/getting-started) and served via [ts-jest](https://kulshekhar.github.io/ts-jest/docs/)
+Test files live under `tests/` and mirror `src/`; use `{filename}.test.ts`. Keep behavior tests close to the source responsibility they exercise. Use `describe`/`test` and Arrange/Act/Assert comments for behavioral cases. Prefer assertions about externally observable behavior over configuration snapshots or private implementation details.
 
-Test initialization goes like this:
+For shared test-authoring and review doctrine, see [MSSRT issue #725](https://github.com/klondikemarlen/marlens-skills-rules-and-tools/issues/725). This short guide records this package's actual runner and lifecycle rather than reproducing that full manual.
 
-1. `api/jest.config.ts` loads the ts config and finds the appropriate setup functions.
+## Commands
 
-2. Before running the tests, it runs the `globalSetup` function from `api/tests/global-setup.ts`. Things like setting up the database and running migrations and base seeds.
+```sh
+npm run test -- --run
+npm run check-types
+npm run lint
+```
 
-3. Next it loads a specific test file triggers the `setupFilesAfterEnv` files, currently only `api/tests/setup.ts`. These setup files add callbacks that will run before/after _each test file_ runs, so they should be performant. Mostly cleanup functions.
+The optional shared tooling entrypoints and host-specific composition are documented in [Tooling presets](../docs/tooling.md). To exercise their packed-artifact consumer fixtures after the package is built and the package subpath exports are present:
 
-4. It runs the actual tests in the loaded file.
+```sh
+bash tests/fixtures/tooling/postgresql/scripts/smoke.sh
+bash tests/fixtures/tooling/tsql/scripts/smoke.sh
+```
 
-5. (Currently) Runs `afterAll` callback that cleans the database after each test file has completed all its tests. This may need to run as an `afterEach` instead ...
-
-6. Runs the next test file, and repeats from step 3.
-
-## General Notes About Tests
-
-1. Tests should map to a specific file in the api/src folder.
-
-   e.g.
-
-   - `api/src/models/funding-submission-line-json.ts` maps to `api/tests/models/funding-submission-line-json.test.ts`
-   - `api/src/services/centre-services.ts` maps to `api/tests/services/centre-services.test.ts`
-
-2. Tests should follow the naming convention `{filename}.test.{extension}`.
-3. Test file location should be moved if a given file is moved, and deleted if the file under test is deleted.
-4. A good general pattern for a test is
-   ```typescript
-   describe("api/src/services/centre-services.ts", () => { // references file under test
-     describe("CentreServices", () => { // references class or model under test
-       describe(".create", () => { // references a specific method on the class or model
-       test("creates a new centre in the database", async () => { // descriptive message about the specific behaviour under test
-       })
-     })
-   })
-   ```
-5. I'm using a plugin that lets me switch between the test and non-test file, and creates the test file if it does not exist. It's not great, but it mostly works. See https://marketplace.visualstudio.com/items?itemName=klondikemarlen.create-test-file
-
-   It requires this config (in your workspace or `.vscode/settings.json`).
-
-   > Note that if this is in your workspace config must be inside the "settings" entry. i.e. `{ "settings": { // these settings } }`.
-
-   ```json
-   {
-     "createTestFile.nameTemplate": "{filename}.test.{extension}",
-     "createTestFile.languages": {
-       "[vue]": {
-         "createTestFile.nameTemplate": "{filename}.test.{extension}.ts"
-       }
-     },
-     "createTestFile.pathMaps": [
-       {
-         // Other examples
-         // "pathPattern": "/?(.*)",
-         // "testFilePathPattern": "spec/$1"
-         "pathPattern": "(api)/src/?(.*)",
-         "testFilePathPattern": "$1/tests/$2"
-       },
-       {
-         "pathPattern": "(web)/src/?(.*)",
-         "testFilePathPattern": "$1/tests/$2"
-       }
-     ],
-     "createTestFile.isTestFileMatchers": [
-       "^(?:test|spec)s?/",
-       "/(?:test|spec)s?/",
-       "/?(?:test|spec)s?_",
-       "/?_(?:test|spec)s?",
-       "/?\\.(?:test|spec)s?",
-       "/?(?:test|spec)s?\\."
-     ]
-   }
-   ```
+Each fixture installs the packed package in a temporary consumer, checks a valid TypeScript file and the expected shared TypeScript lint diagnostic, formats TypeScript plus SQL in its configured dialect, and runs a behavioral test using source/test aliases and host lifecycle hooks. The PostgreSQL fixture also compiles a native CommonJS consumer of the public declarations without skipping dependency declaration checks. The fixtures intentionally keep database setup absent: a real host must retain its own database lifecycle, isolation, and concurrency configuration.
