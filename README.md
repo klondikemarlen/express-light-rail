@@ -26,6 +26,7 @@ Detailed convention docs live beside the source:
 
 - [`src/base-controller/README.md`](src/base-controller/README.md)
 - [`src/base-policy/README.md`](src/base-policy/README.md)
+- [`src/base-model/README.md`](src/base-model/README.md)
 - [`src/base-service/README.md`](src/base-service/README.md)
 - [`src/base-serializer/README.md`](src/base-serializer/README.md)
 - [`src/base-job/README.md`](src/base-job/README.md)
@@ -42,6 +43,7 @@ Route → Controller → Policy → Service → Model → Serializer → Respons
   and `destroy`, while route files stay normal Express `router.route(...).get(...).post(...)`
   declarations.
 - Policies keep authorization and permitted attributes out of controllers.
+- Models can adopt `BaseModel` individually for concrete scope typing and scoped primary-key reloads; model definitions and database setup remain host-owned.
 - Services hold business logic and multi-step mutations behind `ServiceName.perform(args)`.
 - Serializers own response shape, association preload checks, and list/detail/reference views.
 - Jobs provide `perform`, `performNow`, `performLater`, and `queueAs` without choosing a queue
