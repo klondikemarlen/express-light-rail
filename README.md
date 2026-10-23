@@ -29,6 +29,7 @@ Detailed convention docs live beside the source:
 - [`src/base-service/README.md`](src/base-service/README.md)
 - [`src/base-serializer/README.md`](src/base-serializer/README.md)
 - [`src/base-job/README.md`](src/base-job/README.md)
+- [Browser-safe query and policy contracts](docs/browser-contracts.md)
 
 ## Concepts
 
