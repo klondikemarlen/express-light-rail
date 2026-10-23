@@ -22,6 +22,7 @@ export {
   type Actions as PolicyActions,
   type BaseScopeOptions,
 } from "./base-policy/index.js"
+export { BaseModel } from "./base-model/index.js"
 export { BaseService } from "./base-service/index.js"
 export { BaseSerializer } from "./base-serializer/index.js"
 export {
