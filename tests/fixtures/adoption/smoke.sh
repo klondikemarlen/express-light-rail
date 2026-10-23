@@ -22,6 +22,6 @@ for consumer in travel elcc; do
   printf 'Node %s; installed express-light-rail %s\n' "$(node --version)" "$installed_version"
   npm run typecheck
   npm test
-  node ../smoke-esm.mjs
+  node --input-type=module < "$SCRIPT_DIR/smoke-esm.mjs"
   node ../smoke-cjs.cjs
 done

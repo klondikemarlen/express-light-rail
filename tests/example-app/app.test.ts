@@ -56,6 +56,20 @@ describe("runnable Express adoption example", () => {
     expect(response.body.error.code).toBe("forbidden")
   })
 
+  test("when a task title is missing, creation returns a client validation error", async () => {
+    // Arrange
+    const route = request(app).post("/api/tasks").set("x-user-id", "alice").send({})
+
+    // Act
+    const response = await route
+
+    // Assert
+    expect(response.status).toBe(400)
+    expect(response.body).toEqual({
+      error: { code: "invalid_input", msg: "title is required", meta: {} },
+    })
+  })
+
   test("when route work fails unexpectedly, the response hides its error message", async () => {
     // Arrange
     const route = request(app).get("/api/tasks").set("x-user-id", "alice").query({ fail: "true" })

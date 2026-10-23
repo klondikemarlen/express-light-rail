@@ -1,3 +1,5 @@
+import { BaseApiError } from "express-light-rail"
+
 import type { Task, User } from "@example-app/domain.js"
 
 export class TasksPolicy {
@@ -12,11 +14,13 @@ export class TasksPolicy {
   }
 
   permitCreate(input: unknown): Pick<Task, "title" | "status" | "visibility"> {
-    if (!input || typeof input !== "object") throw new TypeError("Expected a task object")
+    if (!input || typeof input !== "object") {
+      throw new BaseApiError("invalid_input", "Expected a task object", {}, 400)
+    }
 
     const body = input as Record<string, unknown>
     if (typeof body.title !== "string" || body.title.trim() === "") {
-      throw new TypeError("title is required")
+      throw new BaseApiError("invalid_input", "title is required", {}, 400)
     }
 
     const status = body.status === "done" ? "done" : "open"

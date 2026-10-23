@@ -29,7 +29,6 @@ class CreateRecordService extends BaseService<Promise<RecordRow>> {
   async perform(): Promise<RecordRow> {
     if (this.signal?.aborted) throw new DOMException("Aborted", "AbortError")
     if (this.title === "explode") throw new Error("Secret failure")
-    if (!this.actor.canWrite) throw new BaseApiError("forbidden", "Write denied", {}, 403)
 
     const record = { id: String(records.length + 1), ownerId: this.actor.id, title: this.title }
     records.push(record)
@@ -84,6 +83,11 @@ function appFor(actor: Actor) {
   app.use(express.json())
   const router = Router()
   router.post("/records", (req: Request, res, next) => {
+    if (!actor.canWrite) {
+      next(new BaseApiError("forbidden", "Write denied", {}, 403))
+      return
+    }
+
     void CreateRecordService.perform(actor, String(req.body.title))
       .then((record) =>
         res.status(201).json({ record: RecordSerializer.perform(preloadOwner(record)) })
