@@ -20,6 +20,6 @@ const refreshedUser = await reloadWithScope(user, {
 
 Transactions, attribute projections and includes remain native lookup options. The helper always requests one model instance: raw/array results, replacement primary-key conditions and disabling the not-found rejection are excluded from its typed options. Host query hooks remain enabled; a hook that changes the result into raw attributes or an array causes a descriptive `TypeError`, rather than a misleading model result.
 
-Inline scopes exclude result-shaping `raw: true` and `plain: true` options. Named scopes remain host-owned Sequelize definitions. Reload projections always retain primary-key attributes so the helper can reject a different record returned by a query hook.
+Inline scopes exclude result-shaping `raw: true` and all `plain` options. Named scopes remain host-owned Sequelize definitions. Projections from named scopes, inline scopes, and explicit lookup options always retain primary-key attributes so the helper can reject a different record returned by a query hook; other selected or excluded attributes retain their native projection.
 
 Scope selection is not authorization by itself. Hosts choose the appropriate policy scope; client filters must only narrow it. Text search, slug lookup, batching, database-specific mutations and domain events remain separate concerns.
