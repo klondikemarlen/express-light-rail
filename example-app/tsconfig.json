@@ -2,6 +2,8 @@
   "extends": "../tsconfig.json",
   "compilerOptions": {
     "rootDir": ".",
+    "outDir": "../.example-app",
+    "tsBuildInfoFile": "../.example-app/tsconfig.tsbuildinfo",
     "baseUrl": ".",
     "paths": {
       "@example-app/*": ["./*"]

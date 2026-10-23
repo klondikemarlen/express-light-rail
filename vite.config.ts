@@ -59,6 +59,10 @@ export default defineConfig({
     root: ".",
     include: ["tests/**/*.test.ts"],
     exclude: ["tests/fixtures/**"],
+    alias: {
+      "@example-app": resolve(__dirname, "example-app"),
+      "express-light-rail": resolve(__dirname, "src/index.ts"),
+    },
     globalSetup: "./tests/global-setup.ts",
     setupFiles: ["./tests/setup.ts"],
     poolOptions: {

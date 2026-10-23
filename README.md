@@ -51,6 +51,9 @@ Route → Controller → Policy → Service → Model → Serializer → Respons
 - Jobs provide `perform`, `performNow`, `performLater`, and `queueAs` without choosing a queue
   backend for the host application.
 
+Start with the [incremental adoption guide](docs/adoption.md) for host ownership,
+audited compatibility boundaries, a runnable Express example, and consumer cutover recipes.
+
 Routes should stay visibly Express-shaped. `express-light-rail` gives controllers Rails-like
 instance actions, but it does not hide `Router` behind a DSL:
 

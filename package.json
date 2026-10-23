@@ -68,6 +68,7 @@
   "scripts": {
     "clean": "rm -rf ./dist",
     "build": "npm run clean && vite build",
+    "example": "tsc -p example-app/tsconfig.json && tsc-alias -p example-app/tsconfig.json && node .example-app/server.js",
     "test": "vitest",
     "prepublishOnly": "npm run check-types && npm run test -- --run && npm run build",
     "ts-node": "ts-node -r tsconfig-paths/register --logError",

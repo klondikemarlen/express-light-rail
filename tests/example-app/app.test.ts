@@ -1,0 +1,113 @@
+import request from "supertest"
+import { beforeEach, describe, expect, test } from "vitest"
+
+import { resetTasks } from "@example-app/domain.js"
+
+import { app } from "@example-app/app.js"
+
+beforeEach(() => resetTasks())
+
+describe("runnable Express adoption example", () => {
+  test("when a status filter is supplied, it intersects the current-user policy", async () => {
+    // Arrange
+    const route = request(app).get("/api/tasks").set("x-user-id", "alice").query({ status: "open" })
+
+    // Act
+    const response = await route
+
+    // Assert
+    expect(response.status).toBe(200)
+    expect(response.body.tasks).toEqual([
+      { id: 1, title: "Review access", status: "open", visibility: "private" },
+    ])
+  })
+
+  test("when an authorized user creates a task, the route returns the new task", async () => {
+    // Arrange
+    const route = request(app)
+      .post("/api/tasks")
+      .set("x-user-id", "alice")
+      .send({ title: "Allowed", status: "open", visibility: "private" })
+
+    // Act
+    const response = await route
+
+    // Assert
+    expect(response.status).toBe(201)
+    expect(response.body.task).toMatchObject({
+      title: "Allowed",
+      status: "open",
+      visibility: "private",
+    })
+  })
+
+  test("when an unauthorized user creates a task, the route denies it", async () => {
+    // Arrange
+    const route = request(app)
+      .post("/api/tasks")
+      .set("x-user-id", "bob")
+      .send({ title: "Blocked", status: "open" })
+
+    // Act
+    const response = await route
+
+    // Assert
+    expect(response.status).toBe(403)
+    expect(response.body.error.code).toBe("forbidden")
+  })
+
+  test("when a task title is missing, creation returns a client validation error", async () => {
+    // Arrange
+    const route = request(app).post("/api/tasks").set("x-user-id", "alice").send({})
+
+    // Act
+    const response = await route
+
+    // Assert
+    expect(response.status).toBe(400)
+    expect(response.body).toEqual({
+      error: { code: "invalid_input", msg: "title is required", meta: {} },
+    })
+  })
+
+  test("when JSON cannot be parsed, the host preserves its client error status", async () => {
+    // Arrange
+    const route = request(app).post("/api/tasks").set("Content-Type", "application/json").send("{")
+
+    // Act
+    const response = await route
+
+    // Assert
+    expect(response.status).toBe(400)
+    expect(response.body).toEqual({
+      error: { code: "invalid_request", msg: "Invalid request", meta: {} },
+    })
+  })
+
+  test("when the JSON body exceeds its limit, the host preserves payload-too-large status", async () => {
+    // Arrange
+    const route = request(app).post("/api/tasks").send({ title: "x".repeat(110000) })
+
+    // Act
+    const response = await route
+
+    // Assert
+    expect(response.status).toBe(413)
+    expect(response.body).toEqual({
+      error: { code: "invalid_request", msg: "Invalid request", meta: {} },
+    })
+  })
+
+  test("when route work fails unexpectedly, the response hides its error message", async () => {
+    // Arrange
+    const route = request(app).get("/api/tasks").set("x-user-id", "alice").query({ fail: "true" })
+
+    // Act
+    const response = await route
+
+    // Assert
+    expect(response.status).toBe(500)
+    expect(response.body.error.code).toBe("internal_server_error")
+    expect(JSON.stringify(response.body)).not.toContain("Internal demo failure")
+  })
+})
