@@ -126,14 +126,15 @@ Adopt incrementally: first install the handlers around existing Express routes, 
 
 ## Extraction roadmap
 
+Common browser query, pagination, order, and policy contracts are available through
+`express-light-rail/contracts`; endpoint envelopes and model-specific fields remain host-owned.
+
 The next host-agnostic pieces worth extracting from WRAP, travel-authorization, and ELCC are:
 
 - Query conventions: small helpers for naming, composing, and testing SQL literal builders without
   forcing class-based query objects.
 - Job argument serialization: optional Sequelize model argument serialization for `BaseJob`, while
   keeping queue persistence and workers host-owned.
-- Front-end API contracts: shared TypeScript query/envelope types that mirror controller helper
-  behavior without pulling in Vue or React.
 
 Keep these out until they remove duplicated code in at least two host apps. Pub/sub channels,
 workers, Auth0/JWT details, and app bootstrapping still belong in host applications.
