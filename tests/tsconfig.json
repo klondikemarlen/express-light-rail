@@ -12,6 +12,6 @@
     "typeRoots": ["../node_modules/@types", "../@types", "./@types"],
     "types": ["node", "../vitest/globals"]
   },
-  "include": ["../src/**/*", "../tooling/**/*", "../tests/**/*", "../example-app/**/*", ""],
+  "include": ["../src/**/*", "../tests/**/*", "../example-app/**/*", ""],
   "exclude": ["./fixtures"]
 }

@@ -2,9 +2,7 @@ import eslint from "@eslint/js"
 import eslintConfigPrettier from "eslint-config-prettier"
 import tseslint, { type ConfigArray, type ConfigWithExtends } from "typescript-eslint"
 
-export function createEslintConfig(
-  ...overrides: ConfigWithExtends[]
-): ConfigArray {
+export function createEslintConfig(...overrides: ConfigWithExtends[]): ConfigArray {
   return tseslint.config(
     eslint.configs.recommended,
     tseslint.configs.recommended,
