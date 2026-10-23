@@ -49,6 +49,15 @@ function assertHelperTypeContracts(model: typeof TypedRecord, record: TypedRecor
   // @ts-expect-error Plain-false queries return arrays rather than one model.
   reloadWithScope(record, "active", { plain: false })
 
+  // @ts-expect-error Inline raw scopes cannot preserve model instance methods.
+  withScope(model, { raw: true })
+
+  // @ts-expect-error Inline plain scopes cannot preserve array query results.
+  withScope(model, { plain: true })
+
+  // @ts-expect-error Inline plain-false scopes would change findOne into an array.
+  withScope(model, { plain: false })
+
   void [
     customStaticResult,
     inlineWhereScope,

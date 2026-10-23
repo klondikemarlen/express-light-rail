@@ -403,4 +403,44 @@ describe("model helpers", () => {
     // Assert
     await expect(reload).rejects.toBeInstanceOf(EmptyResultError)
   })
+
+  test("when a host query hook replaces identity, reload rejects the different record", async () => {
+    // Arrange
+    const database = new Sequelize({
+      dialect: SqliteDialect,
+      storage: ":memory:",
+      logging: false,
+      pool: { max: 1, idle: Infinity, maxUses: Infinity },
+    })
+    try {
+      class HookedRecord extends Model<ReloadRecordAttributes> {}
+      HookedRecord.init(
+        {
+          id: { type: DataTypes.INTEGER, primaryKey: true },
+          name: { type: DataTypes.STRING },
+          visible: { type: DataTypes.BOOLEAN },
+        },
+        {
+          sequelize: database,
+          timestamps: false,
+          hooks: {
+            beforeFindAfterOptions(options) {
+              options.where = { id: 2 }
+            },
+          },
+        }
+      )
+      await database.sync()
+      const record = await HookedRecord.create({ id: 1, name: "original", visible: true })
+      await HookedRecord.create({ id: 2, name: "different", visible: true })
+
+      // Act
+      const reload = reloadWithScope(record, null)
+
+      // Assert
+      await expect(reload).rejects.toThrow("reloadWithScope expected the original primary key")
+    } finally {
+      await database.close()
+    }
+  })
 })
