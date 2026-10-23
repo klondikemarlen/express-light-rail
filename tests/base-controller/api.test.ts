@@ -1,7 +1,7 @@
 import express from "express"
 import request from "supertest"
 
-import { testWithCustomLogLevel } from "@tests/support/index.js"
+import { createApiErrorHandler } from "@/middlewares/create-api-error-handler.js"
 
 import { API, BaseApiError } from "@/base-controller/api.js"
 
@@ -14,13 +14,13 @@ describe("src/base-controller/api.ts", () => {
     })
 
     describe(".index", () => {
-      testWithCustomLogLevel("when called, executes the index action", async ({ setLogLevel }) => {
+      test("when index is not implemented, it returns a public error", async () => {
         // Arrange
-        setLogLevel("silent")
 
         app.route("/example-api").get(API.index)
+        app.use(createApiErrorHandler())
 
-        // act
+        // Act
         const response = await request(app).get("/example-api").send()
 
         // Assert
@@ -36,11 +36,11 @@ describe("src/base-controller/api.ts", () => {
     })
 
     describe(".create", () => {
-      testWithCustomLogLevel("when called, executes the create action", async ({ setLogLevel }) => {
+      test("when create is not implemented, it returns a public error", async () => {
         // Arrange
-        setLogLevel("silent")
 
         app.route("/example-api").post(API.create)
+        app.use(createApiErrorHandler())
 
         // Act
         const response = await request(app).post("/example-api").send()
@@ -58,11 +58,11 @@ describe("src/base-controller/api.ts", () => {
     })
 
     describe(".show", () => {
-      testWithCustomLogLevel("when called, executes the show action", async ({ setLogLevel }) => {
+      test("when show is not implemented, it returns a public error", async () => {
         // Arrange
-        setLogLevel("silent")
 
         app.route("/example-api/:someParam").get(API.show)
+        app.use(createApiErrorHandler())
 
         // Act
         const response = await request(app).get("/example-api/1").send()
@@ -80,11 +80,11 @@ describe("src/base-controller/api.ts", () => {
     })
 
     describe(".update", () => {
-      testWithCustomLogLevel("when called, executes the update action", async ({ setLogLevel }) => {
+      test("when update is not implemented, it returns a public error", async () => {
         // Arrange
-        setLogLevel("silent")
 
         app.route("/example-api/:someParam").put(API.update)
+        app.use(createApiErrorHandler())
 
         // Act
         const response = await request(app).put("/example-api/1").send()
@@ -102,28 +102,24 @@ describe("src/base-controller/api.ts", () => {
     })
 
     describe(".destroy", () => {
-      testWithCustomLogLevel(
-        "when called, executes the destroy action",
-        async ({ setLogLevel }) => {
-          // Arrange
-          setLogLevel("silent")
+      test("when destroy is not implemented, it returns a public error", async () => {
+        // Arrange
+        app.route("/example-api/:someParam").delete(API.destroy)
+        app.use(createApiErrorHandler())
 
-          app.route("/example-api/:someParam").delete(API.destroy)
+        // Act
+        const response = await request(app).delete("/example-api/1").send()
 
-          // Act
-          const response = await request(app).delete("/example-api/1").send()
-
-          // Assert
-          expect(response.status).toBe(500)
-          expect(response.body).toMatchObject({
-            error: {
-              code: "not_implemented",
-              msg: "Not Implemented",
-              meta: {},
-            },
-          })
-        }
-      )
+        // Assert
+        expect(response.status).toBe(500)
+        expect(response.body).toMatchObject({
+          error: {
+            code: "not_implemented",
+            msg: "Not Implemented",
+            meta: {},
+          },
+        })
+      })
     })
 
     describe(".buildOrder", () => {
@@ -169,11 +165,11 @@ describe("src/base-controller/api.ts", () => {
         }
       }
 
-      testWithCustomLogLevel("when action errors with an known API error, returns the error", async ({ setLogLevel }) => {
+      test("when an action raises a public error, it preserves the error response", async () => {
         // Arrange
-        setLogLevel("silent")
 
         app.route("/example-api").post(ExampleController.create)
+        app.use(createApiErrorHandler())
 
         // Act
         const response = await request(app).post("/example-api").send()
@@ -189,6 +185,38 @@ describe("src/base-controller/api.ts", () => {
             },
           },
         })
+      })
+
+      test("when an action rejects, existing Express error middleware can handle it", async () => {
+        // Arrange
+        const originalError = new Error("private service failure")
+
+        class FailingController extends API {
+          async create() {
+            throw originalError
+          }
+        }
+
+        app.route("/example-api").post(FailingController.create)
+        app.use(
+          (
+            error: unknown,
+            _request: express.Request,
+            response: express.Response,
+            next: express.NextFunction
+          ) => {
+            if (error !== originalError) return next(error)
+
+            return response.status(503).json({ message: "Try again later" })
+          }
+        )
+
+        // Act
+        const response = await request(app).post("/example-api").send()
+
+        // Assert
+        expect(response.status).toBe(503)
+        expect(response.body).toEqual({ message: "Try again later" })
       })
     })
   })
