@@ -3,6 +3,7 @@
 `travel/` and `elcc/` are isolated consumer-shaped cutovers. Install dependencies and an exact package tarball before running their TypeScript checks and behavioral suites:
 
 ```sh
+npm run build
 npm pack
 tests/fixtures/adoption/smoke.sh "$(pwd)/express-light-rail-<version>.tgz"
 ```
