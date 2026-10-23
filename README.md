@@ -29,6 +29,7 @@ Detailed convention docs live beside the source:
 - [`src/base-service/README.md`](src/base-service/README.md)
 - [`src/base-serializer/README.md`](src/base-serializer/README.md)
 - [`src/base-job/README.md`](src/base-job/README.md)
+- [Opt-in lint, format and Vitest presets](docs/tooling.md)
 
 ## Concepts
 
