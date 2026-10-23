@@ -1,10 +1,6 @@
-import http from "http"
+import { app } from "@example-app/app.js"
 
-import { API_PORT } from "@example-app/config.js"
-import app from "@example-app/app.js"
-
-export const server = http.createServer(app)
-
-server.listen(API_PORT, () => {
-  console.log(`Express Light Rail API listenting on port ${API_PORT}`)
+const port = Number(process.env.API_PORT ?? 3000)
+app.listen(port, () => {
+  console.log(`Express Light Rail example listening on port ${port}`)
 })
