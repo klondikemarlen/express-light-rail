@@ -20,6 +20,7 @@ cd "$temporary_dir/consumer"
 npm install --no-package-lock --ignore-scripts --no-audit --no-fund
 npm install --no-package-lock --ignore-scripts --no-audit --no-fund "$artifact_path"
 node -p "'Installed express-light-rail ' + JSON.parse(require('node:fs').readFileSync('node_modules/express-light-rail/package.json')).version"
+npx tsc --noEmit --strict --target es2022 --lib esnext,dom --module node16 tests/commonjs-consumer.cts
 
 npx eslint src/feature.ts tests/feature.test.ts
 if npx eslint src/lint-error.ts > "$temporary_dir/lint-output.txt" 2>&1; then
