@@ -1,8 +1,7 @@
-import { DataTypes, EmptyResultError, Sequelize } from "@sequelize/core"
+import { DataTypes, EmptyResultError, Model, Sequelize, type ModelStatic } from "@sequelize/core"
 import { SqliteDialect } from "@sequelize/sqlite3"
-import { expectTypeOf } from "vitest"
 
-import { BaseModel } from "@/base-model/index.js"
+import { reloadWithScope, withScope } from "@/model-helpers/index.js"
 
 interface ReloadRecordAttributes {
   id: number
@@ -10,10 +9,7 @@ interface ReloadRecordAttributes {
   visible: boolean
 }
 
-class ReloadRecord extends BaseModel<
-  ReloadRecordAttributes,
-  Omit<ReloadRecordAttributes, "id">
-> {
+class ReloadRecord extends Model<ReloadRecordAttributes, Omit<ReloadRecordAttributes, "id">> {
   declare id: number
   declare name: string
   declare visible: boolean
@@ -23,22 +19,13 @@ class ReloadRecord extends BaseModel<
   }
 }
 
-type ExpectFalse<T extends false> = T
-type RawOptionIsRejected = ExpectFalse<
-  { raw: true } extends NonNullable<
-    Parameters<ReloadRecord["reloadWithScope"]>[1]
-  >
-    ? true
-    : false
->
-
 interface CompositeRecordAttributes {
   firstKey: number
   secondKey: number
   name: string
 }
 
-class CompositeRecord extends BaseModel<CompositeRecordAttributes> {
+class CompositeRecord extends Model<CompositeRecordAttributes> {
   declare firstKey: number
   declare secondKey: number
   declare name: string
@@ -87,7 +74,7 @@ ReloadRecord.init(
         plain: false,
       },
     },
-  },
+  }
 )
 
 CompositeRecord.init(
@@ -109,10 +96,10 @@ CompositeRecord.init(
     sequelize,
     tableName: "composite_records",
     timestamps: false,
-  },
+  }
 )
 
-describe("BaseModel", () => {
+describe("model helpers", () => {
   beforeEach(async () => {
     await sequelize.sync({ force: true })
   })
@@ -129,13 +116,11 @@ describe("BaseModel", () => {
     })
 
     // Act
-    const scopedModel = ReloadRecord.withScope("visible")
+    const scopedModel = withScope(ReloadRecord, "visible")
     const foundRecord = await scopedModel.findByName("Ada")
-    const reloadedRecord: ReloadRecord = await record.reloadWithScope("visible")
+    const reloadedRecord = await reloadWithScope(record, "visible")
 
     // Assert
-    expectTypeOf(scopedModel.findByName).toEqualTypeOf(ReloadRecord.findByName)
-    expectTypeOf<RawOptionIsRejected>().toEqualTypeOf<false>()
     expect(foundRecord?.name).toBe("Ada")
     expect(reloadedRecord).toBeInstanceOf(ReloadRecord)
     expect(reloadedRecord).not.toBe(record)
@@ -150,7 +135,7 @@ describe("BaseModel", () => {
     ])
 
     // Act
-    const records = await ReloadRecord.withScope("visible", "namedAda").findAll()
+    const records = await withScope(ReloadRecord, "visible", "namedAda").findAll()
 
     // Assert
     expect(records).toMatchObject([
@@ -161,15 +146,156 @@ describe("BaseModel", () => {
     ])
   })
 
+  test("when a model customizes scopes, it preserves host-owned filtering", async () => {
+    // Arrange
+    const database = new Sequelize({
+      dialect: SqliteDialect,
+      storage: ":memory:",
+      logging: false,
+      pool: { max: 1, idle: Infinity, maxUses: Infinity },
+    })
+
+    try {
+      class HostScopedRecord extends Model<{ identifier: number; visible: boolean }> {
+        declare identifier: number
+        declare visible: boolean
+
+        static withScope<TModel extends Model>(
+          this: ModelStatic<TModel>,
+          ...scopes: Parameters<typeof Model.withScope>
+        ): ModelStatic<TModel> {
+          return Reflect.apply(Model.withScope, this, ["visible", ...scopes]) as ModelStatic<TModel>
+        }
+      }
+
+      HostScopedRecord.init(
+        {
+          identifier: { type: DataTypes.INTEGER, primaryKey: true },
+          visible: { type: DataTypes.BOOLEAN, allowNull: false },
+        },
+        {
+          sequelize: database,
+          timestamps: false,
+          scopes: { visible: { where: { visible: true } } },
+        }
+      )
+      await database.sync()
+      await HostScopedRecord.bulkCreate([
+        { identifier: 1, visible: false },
+        { identifier: 2, visible: true },
+      ])
+
+      // Act
+      const records = await withScope(HostScopedRecord, null).findAll()
+
+      // Assert
+      expect(records).toMatchObject([
+        {
+          identifier: 2,
+          visible: true,
+        },
+      ])
+    } finally {
+      await database.close()
+    }
+  })
+
+  test("when passing an inline where scope, it applies the predicate", async () => {
+    // Arrange
+    await ReloadRecord.bulkCreate([
+      { name: "visible", visible: true },
+      { name: "hidden", visible: false },
+    ])
+
+    // Act
+    const records = await withScope(ReloadRecord, {
+      where: { visible: true },
+    }).findAll()
+
+    // Assert
+    expect(records).toMatchObject([
+      {
+        name: "visible",
+        visible: true,
+      },
+    ])
+  })
+
   test("when a scope requests raw arrays, it still reloads one model instance", async () => {
     // Arrange
     const record = await ReloadRecord.create({ name: "Ada", visible: true })
 
     // Act
-    const reloaded = await record.reloadWithScope("rawArray")
+    const reloaded = await reloadWithScope(record, "rawArray")
 
     // Assert
     expect(reloaded.getDataValue("name")).toBe("Ada")
+  })
+
+  test("when an init-configured query hook returns raw arrays, reload rejects the result shape", async () => {
+    // Arrange
+    const hookSequelize = new Sequelize({
+      dialect: SqliteDialect,
+      storage: ":memory:",
+      logging: false,
+      pool: {
+        max: 1,
+        idle: Infinity,
+        maxUses: Infinity,
+      },
+    })
+
+    try {
+      class HookedRecord extends Model<ReloadRecordAttributes, Omit<ReloadRecordAttributes, "id">> {
+        declare id: number
+        declare name: string
+        declare visible: boolean
+      }
+
+      HookedRecord.init(
+        {
+          id: {
+            type: DataTypes.INTEGER,
+            primaryKey: true,
+            autoIncrement: true,
+          },
+          name: {
+            type: DataTypes.STRING,
+            allowNull: false,
+          },
+          visible: {
+            type: DataTypes.BOOLEAN,
+            allowNull: false,
+          },
+        },
+        {
+          sequelize: hookSequelize,
+          tableName: "hooked_records",
+          timestamps: false,
+          hooks: {
+            beforeFindAfterOptions(options) {
+              options.raw = true
+              Object.assign(options, { plain: false })
+            },
+          },
+        }
+      )
+      await HookedRecord.sync()
+      const record = await HookedRecord.create({
+        name: "Ada",
+        visible: true,
+      })
+
+      // Act
+      const reload = reloadWithScope(record, null)
+
+      // Assert
+      await expect(reload).rejects.toThrow(
+        "reloadWithScope expected a model instance, but a model hook changed the find result shape."
+      )
+    } finally {
+      await hookSequelize.close()
+    }
   })
 
   test("when reloading a single-key record, it returns fresh scoped state", async () => {
@@ -178,13 +304,10 @@ describe("BaseModel", () => {
       name: "before",
       visible: true,
     })
-    await ReloadRecord.update(
-      { name: "after" },
-      { where: { id: record.id } },
-    )
+    await ReloadRecord.update({ name: "after" }, { where: { id: record.id } })
 
     // Act
-    const reloadedRecord = await record.reloadWithScope("visible")
+    const reloadedRecord = await reloadWithScope(record, "visible")
 
     // Assert
     expect(reloadedRecord).not.toBe(record)
@@ -211,11 +334,11 @@ describe("BaseModel", () => {
           firstKey: 10,
           secondKey: 20,
         },
-      },
+      }
     )
 
     // Act
-    const reloadedRecord = await record.reloadWithScope(null)
+    const reloadedRecord = await reloadWithScope(record, null)
 
     // Assert
     expect(reloadedRecord).not.toBe(record)
@@ -237,10 +360,10 @@ describe("BaseModel", () => {
         {
           where: { id: record.id },
           transaction,
-        },
+        }
       )
 
-      const reloadedRecord = await record.reloadWithScope("visible", {
+      const reloadedRecord = await reloadWithScope(record, "visible", {
         transaction,
         attributes: ["name"],
       })
@@ -260,7 +383,7 @@ describe("BaseModel", () => {
     })
 
     // Act
-    const reload = record.reloadWithScope("visible")
+    const reload = reloadWithScope(record, "visible")
 
     // Assert
     await expect(reload).rejects.toBeInstanceOf(EmptyResultError)
@@ -275,7 +398,7 @@ describe("BaseModel", () => {
     await record.destroy()
 
     // Act
-    const reload = record.reloadWithScope("visible")
+    const reload = reloadWithScope(record, "visible")
 
     // Assert
     await expect(reload).rejects.toBeInstanceOf(EmptyResultError)
