@@ -6,7 +6,7 @@ This package exposes opt-in configuration building blocks. They are not imported
 
 - `express-light-rail/tooling/eslint` exports `createEslintConfig(...flatConfigOverrides)`, a flat ESLint baseline for TypeScript, recommended JavaScript/TypeScript rules, Prettier conflict suppression, and underscore-prefixed unused bindings. Pass ordinary flat-config objects to extend or override it.
 - `express-light-rail/tooling/prettier` exports `prettierConfig`, the shared formatting object. Consumers add their own plugins and options. Keep SQL formatting plugins and dialect settings in the host config.
-- `express-light-rail/tooling/vitest` exports `createVitestConfig(overrides)`. It composes the shared Vitest mock reset/restore defaults and `vite-tsconfig-paths` for `tsconfig.json` and `tests/tsconfig.json` with native Vite `mergeConfig`. Supply host aliases, `root`, global/setup hooks, coverage, environment, mock policy, and concurrency through normal Vite/Vitest options. The preset deliberately sets no database lifecycle and no worker/fork policy.
+- `express-light-rail/tooling/vitest` exports `createVitestConfig(overrides)`. It composes shared Vitest mock reset/restore defaults and native `vite-tsconfig-paths` discovery with Vite `mergeConfig`; a separate tests tsconfig is not required. Supply host aliases, `root`, global/setup hooks, coverage, environment, mock policy, and concurrency through normal Vite/Vitest options. The preset deliberately sets no database lifecycle and no worker/fork policy.
 
 These configuration entrypoints are optional tooling peers; they are not runtime dependencies and are not activated by importing `express-light-rail`. Configure the application explicitly. Flat ESLint config requires ESLint 9; this package does not adapt legacy `.eslintrc` files or upgrade them.
 
@@ -39,8 +39,10 @@ A host can add the configuration entrypoints to its own standard files and use e
 // eslint.config.mjs
 import { createEslintConfig } from "express-light-rail/tooling/eslint"
 
-export default createEslintConfig({ files: ["src/**/*.ts"] })
+export default createEslintConfig({ ignores: ["dist/**"] })
 ```
+
+This ignore-only object excludes generated output globally. A `files` selector on an appended override applies only to that override, not to the preceding shared baseline.
 
 ```ts
 import { defineConfig } from "vitest/config"
