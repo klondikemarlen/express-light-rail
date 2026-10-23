@@ -1,13 +1,7 @@
-import { determineLimit } from "./determine-limit.js"
+import { DEFAULT_PER_PAGE, type Pagination } from "@/contracts/index.js"
+import { determineLimit } from "@/base-controller/api-helpers/determine-limit.js"
 
-export const DEFAULT_PER_PAGE = 10
-
-export type Pagination = {
-  page: number
-  perPage: number
-  limit: number
-  offset: number
-}
+export { DEFAULT_PER_PAGE, type Pagination } from "@/contracts/index.js"
 
 export function buildPagination(query: Record<string, unknown>): Pagination {
   const page = parseInt(query.page?.toString() || "") || 1

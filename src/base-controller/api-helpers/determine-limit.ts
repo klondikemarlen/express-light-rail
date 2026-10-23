@@ -1,5 +1,6 @@
-export const MAX_PER_PAGE = 1000
-export const MAX_PER_PAGE_EQUIVALENT = -1
+import { MAX_PER_PAGE, MAX_PER_PAGE_EQUIVALENT } from "@/contracts/index.js"
+
+export { MAX_PER_PAGE, MAX_PER_PAGE_EQUIVALENT } from "@/contracts/index.js"
 
 export function determineLimit(perPage: number): number {
   if (perPage === MAX_PER_PAGE_EQUIVALENT) {
