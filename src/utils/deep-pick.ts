@@ -1,13 +1,6 @@
-import {
-  cloneDeep,
-  isArray,
-  isBoolean,
-  isNull,
-  isNumber,
-  isObject,
-  isString,
-  isUndefined,
-} from "lodash"
+import lodash from "lodash"
+
+const { cloneDeep, isArray, isBoolean, isNull, isNumber, isObject, isString, isUndefined } = lodash
 
 export type Path =
   | string

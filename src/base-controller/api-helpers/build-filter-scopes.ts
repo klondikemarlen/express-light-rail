@@ -1,8 +1,10 @@
-import { isEmpty } from "lodash"
+import lodash from "lodash"
 
 import { type BaseScopeOptions } from "@/base-policy/index.js"
 
 import { extractRecord } from "./assert-utils.js"
+
+const { isEmpty } = lodash
 
 export function buildFilterScopes<FilterOptions extends Record<string, unknown>>(
   filters: unknown,

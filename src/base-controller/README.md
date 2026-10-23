@@ -6,7 +6,7 @@
 router.route("/api/users").get(UsersController.index).post(UsersController.create)
 ```
 
-`UsersController.index` is still a normal Express `RequestHandler`. The static getter builds a controller instance and calls `#index()`.
+`UsersController.index` is still a normal Express handler. The static getter builds a controller instance and calls `#index()`. Use policies, services, and serializers as needed; installing error middleware does not require moving existing routes or adopting those controller conventions.
 
 ## Responsibilities
 
@@ -27,13 +27,13 @@ Controllers should not:
 
 ## Errors
 
-Throw `BaseApiError` for expected API failures. The base action handler serializes it as:
+Throw `BaseApiError` for expected API failures. Its existing response body is:
 
 ```json
 { "error": { "code": "some_code", "msg": "Message", "meta": {} } }
 ```
 
-Unexpected errors become `internal_server_error` responses and are logged.
+Since 0.4.0, `API` action handlers pass thrown or rejected errors to Express with `next(error)`. They do not format error responses or log implicitly. Install `createApiErrorHandler()` after your routes and controllers, or use your existing host error middleware there. The package handler preserves `BaseApiError` responses and returns a generic `internal_server_error` for unknown errors. See the [incremental Express setup](../../README.md#api-error-handling) for host-owned error classification and logging.
 
 ## Custom actions
 

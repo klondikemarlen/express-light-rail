@@ -1,7 +1,9 @@
 import { Order } from "@sequelize/core"
-import { dropRight, uniqBy } from "lodash"
+import lodash from "lodash"
 
 import { extractArray } from "./assert-utils.js"
+
+const { dropRight, uniqBy } = lodash
 
 export type ModelOrder = Order &
   (

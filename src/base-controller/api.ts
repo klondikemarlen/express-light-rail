@@ -9,8 +9,6 @@ import {
   type ModelOrder,
 } from "@/base-controller/api-helpers/index.js"
 
-import { logger } from "@/utils/logger.js"
-
 import { type BaseScopeOptions } from "@/base-policy/index.js"
 import { BaseApiError } from "@/base-controller/base-api-error.js"
 
@@ -42,19 +40,7 @@ export class API<TModel extends Model = never, ControllerRequest extends Request
         const result = await controllerInstance[action]()
         return result
       } catch (error: unknown) {
-        if (error instanceof BaseApiError) {
-          logger.error(error.message, { error })
-          return res.status(error.statusCode).json(error.toJSON())
-        } else {
-          logger.error(`Internal Server Error: ${error}`, { error })
-          return res.status(500).json({
-            error: {
-              code: "internal_server_error",
-              msg: `Internal Server Error: ${error}`,
-              meta: {},
-            },
-          })
-        }
+        return next(error)
       }
     }
   }
