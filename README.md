@@ -26,9 +26,11 @@ Detailed convention docs live beside the source:
 
 - [`src/base-controller/README.md`](src/base-controller/README.md)
 - [`src/base-policy/README.md`](src/base-policy/README.md)
+- [`src/model-helpers/README.md`](src/model-helpers/README.md)
 - [`src/base-service/README.md`](src/base-service/README.md)
 - [`src/base-serializer/README.md`](src/base-serializer/README.md)
 - [`src/base-job/README.md`](src/base-job/README.md)
+- [Browser-safe query and policy contracts](docs/browser-contracts.md)
 
 ## Concepts
 
@@ -42,6 +44,7 @@ Route → Controller → Policy → Service → Model → Serializer → Respons
   and `destroy`, while route files stay normal Express `router.route(...).get(...).post(...)`
   declarations.
 - Policies keep authorization and permitted attributes out of controllers.
+- Model helpers add concrete scope typing and scoped primary-key reloads without replacing a model's Sequelize superclass; definitions and database setup remain host-owned.
 - Services hold business logic and multi-step mutations behind `ServiceName.perform(args)`.
 - Serializers own response shape, association preload checks, and list/detail/reference views.
 - Jobs provide `perform`, `performNow`, `performLater`, and `queueAs` without choosing a queue
@@ -128,14 +131,15 @@ Adopt incrementally: first install the handlers around existing Express routes, 
 
 ## Extraction roadmap
 
+Common browser query, pagination, order, and policy contracts are available through
+`express-light-rail/contracts`; endpoint envelopes and model-specific fields remain host-owned.
+
 The next host-agnostic pieces worth extracting from WRAP, travel-authorization, and ELCC are:
 
 - Query conventions: small helpers for naming, composing, and testing SQL literal builders without
   forcing class-based query objects.
 - Job argument serialization: optional Sequelize model argument serialization for `BaseJob`, while
   keeping queue persistence and workers host-owned.
-- Front-end API contracts: shared TypeScript query/envelope types that mirror controller helper
-  behavior without pulling in Vue or React.
 
 Keep these out until they remove duplicated code in at least two host apps. Pub/sub channels,
 workers, Auth0/JWT details, and app bootstrapping still belong in host applications.

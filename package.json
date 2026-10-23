@@ -11,6 +11,11 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
+    },
+    "./contracts": {
+      "types": "./dist/contracts/index.d.ts",
+      "import": "./dist/contracts/index.js",
+      "require": "./dist/contracts/index.cjs"
     }
   },
   "files": [
@@ -57,6 +62,7 @@
   "devDependencies": {
     "@eslint/js": "^9.20.0",
     "@sequelize/core": "^7.0.0-alpha.43",
+    "@sequelize/sqlite3": "7.0.0-alpha.43",
     "@types/express": "^4.17.21",
     "@types/supertest": "^6.0.2",
     "eslint": "^9.20.1",

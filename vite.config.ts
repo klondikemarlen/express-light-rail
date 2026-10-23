@@ -11,9 +11,12 @@ const externalDependencies = ["@sequelize/core", "express", "lodash", "winston"]
 export default defineConfig({
   build: {
     lib: {
-      entry: resolve(__dirname, "src/index.ts"),
+      entry: {
+        index: resolve(__dirname, "src/index.ts"),
+        "contracts/index": resolve(__dirname, "src/contracts/index.ts"),
+      },
       name: "ExpressLightRail",
-      fileName: (format) => `index.${format === "es" ? "js" : "cjs"}`,
+      fileName: (format, entryName) => `${entryName}.${format === "es" ? "js" : "cjs"}`,
       formats: ["es", "cjs"],
     },
     rollupOptions: {
