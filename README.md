@@ -20,7 +20,7 @@ Peer dependencies:
 npm install express @sequelize/core
 ```
 
-The package publishes ESM and CommonJS builds from `dist/`, plus TypeScript declarations.
+The package publishes ESM and CommonJS builds from `dist/`, with matching TypeScript declaration entrypoints for native `Node16` and `NodeNext` resolution. CommonJS applications do not need to switch to ESM to consume the framework primitives.
 
 Detailed convention docs live beside the source:
 

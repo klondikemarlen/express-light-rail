@@ -21,4 +21,4 @@ bash tests/fixtures/tooling/postgresql/scripts/smoke.sh
 bash tests/fixtures/tooling/tsql/scripts/smoke.sh
 ```
 
-Each fixture installs the packed package in a temporary consumer, checks a valid TypeScript file and the expected shared TypeScript lint diagnostic, formats TypeScript plus SQL in its configured dialect, and runs a behavioral test using source/test aliases and host lifecycle hooks. The fixtures intentionally keep database setup absent: a real host must retain its own database lifecycle, isolation, and concurrency configuration.
+Each fixture installs the packed package in a temporary consumer, checks a valid TypeScript file and the expected shared TypeScript lint diagnostic, formats TypeScript plus SQL in its configured dialect, and runs a behavioral test using source/test aliases and host lifecycle hooks. The PostgreSQL fixture also compiles a native CommonJS consumer of the public declarations without skipping dependency declaration checks. The fixtures intentionally keep database setup absent: a real host must retain its own database lifecycle, isolation, and concurrency configuration.
