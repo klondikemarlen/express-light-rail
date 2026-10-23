@@ -73,6 +73,9 @@ ReloadRecord.init(
         raw: true,
         plain: false,
       },
+      nameOnly: {
+        attributes: ["name"],
+      },
     },
   }
 )
@@ -373,6 +376,28 @@ describe("model helpers", () => {
       expect(reloadedRecord.getDataValue("visible")).toBeUndefined()
       expect(record.name).toBe("before")
     })
+  })
+
+  test("when a named scope selects attributes, reload retains its projection and identity", async () => {
+    // Arrange
+    const record = await ReloadRecord.create({ name: "Ada", visible: true })
+
+    // Act
+    const reloaded = await reloadWithScope(record, "nameOnly")
+
+    // Assert
+    expect(reloaded.get()).toEqual({ id: record.id, name: "Ada" })
+  })
+
+  test("when an inline scope excludes attributes, reload retains only its projection and identity", async () => {
+    // Arrange
+    const record = await ReloadRecord.create({ name: "Ada", visible: true })
+
+    // Act
+    const reloaded = await reloadWithScope(record, { attributes: { exclude: ["id", "visible"] } })
+
+    // Assert
+    expect(reloaded.get()).toEqual({ id: record.id, name: "Ada" })
   })
 
   test("when the scope excludes a record, it rejects instead of returning null", async () => {

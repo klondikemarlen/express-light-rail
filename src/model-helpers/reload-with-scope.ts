@@ -30,19 +30,28 @@ export async function reloadWithScope<TModel extends Model>(
   const model = record.constructor as ModelStatic<TModel>
   const scopedModel = withScope(model, scopes)
   const identity = record.where()
-  const primaryKeyNames = Array.from(model.modelDefinition.primaryKeysAttributeNames)
-  const primaryKeyProjections: ProjectionAlias[] = primaryKeyNames.map((name) => [
-    sql.attribute(name),
-    name,
-  ])
-  let attributes = options.attributes
-  if (Array.isArray(attributes)) {
-    attributes = [...attributes, ...primaryKeyProjections]
-  } else if (attributes) {
-    attributes = {
-      ...attributes,
-      include: [...(attributes.include ?? []), ...primaryKeyProjections],
-      exclude: (attributes.exclude ?? []).filter((name) => !primaryKeyNames.includes(name)),
+  // Sequelize exposes no public getter for the effective projection of a scoped class.
+  // Read its native scope metadata without changing it, including host scope overrides.
+  const scopeMetadata: unknown = Reflect.get(scopedModel, "_scope")
+  if (!scopeMetadata || typeof scopeMetadata !== "object" || Array.isArray(scopeMetadata)) {
+    throw new TypeError("reloadWithScope requires Sequelize model scope metadata.")
+  }
+  const scopeOptions = scopeMetadata as Pick<FindOptions<Attributes<TModel>>, "attributes">
+  let attributes = options.attributes ?? scopeOptions.attributes
+  if (attributes) {
+    const primaryKeyNames = Array.from(model.modelDefinition.primaryKeysAttributeNames)
+    const primaryKeyProjections: ProjectionAlias[] = primaryKeyNames.map((name) => [
+      sql.attribute(name),
+      name,
+    ])
+    if (Array.isArray(attributes)) {
+      attributes = [...attributes, ...primaryKeyProjections]
+    } else {
+      attributes = {
+        ...attributes,
+        include: [...(attributes.include ?? []), ...primaryKeyProjections],
+        exclude: (attributes.exclude ?? []).filter((name) => !primaryKeyNames.includes(name)),
+      }
     }
   }
   const findOptions: FindOptions<Attributes<TModel>> & {
