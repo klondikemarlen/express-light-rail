@@ -16,7 +16,7 @@ The maintained integration baseline is:
 
 | Tool | Supported range |
 | --- | --- |
-| Node.js | `>=22` |
+| Node.js for optional tooling | `>=22.13` |
 | ESLint | `>=9 <10` (flat config) |
 | `@eslint/js` | `>=9 <10` |
 | `typescript-eslint` | `>=8.24 <9` |
@@ -28,6 +28,8 @@ The maintained integration baseline is:
 | `vite-tsconfig-paths` | `>=5 <6` |
 
 These are configuration compatibility ranges, not a claim about a host's resolved package versions or installed artifact. Database/SQL plugins are host-selected and outside these ranges. Keep the framework, ORM, SQL dialect, and resolved versions owned by the application.
+
+The package's ordinary runtime still declares Node `>=22`; this optional tooling baseline is exercised on Node 22.13 and 24.15. CommonJS tooling loads ESM-only peers through Node's native ESM interop, so older Node 22 releases are outside this tooling baseline. Keep existing host tooling until its runtime prerequisites are met rather than forcing an application upgrade. The fixtures run actual tests through both ESM and CommonJS configurations; Vite 5's upstream CommonJS API deprecation notice remains visible.
 
 ## Native composition and adoption
 
