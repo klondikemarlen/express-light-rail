@@ -102,7 +102,12 @@ export class BasePolicy<M extends Model, U extends Model> {
 
 export function PolicyFactory<M extends Model, U extends Model = Model>(modelClass: ModelStatic<M>) {
   class Policy extends BasePolicy<M, U> {
-    static applyScope<P extends typeof Policy>(
+    static applyScope<
+      P extends {
+        policyScope: (...scopeArguments: never[]) => unknown
+        ensurePolicyScope(): void
+      },
+    >(
       this: P,
       scopes: BaseScopeOptions[],
       user: U,
