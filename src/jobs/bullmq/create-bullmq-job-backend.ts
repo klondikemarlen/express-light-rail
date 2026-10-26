@@ -24,7 +24,7 @@ export function createBullMQJobBackend(
   queues: ReadonlyMap<string, BullMQJobQueue>
 ): BullMQJobBackend {
   return {
-    async enqueue(payload, options) {
+    async enqueue(payload: JobPayload, options?: JobsOptions) {
       const queue = queues.get(payload.queueName)
       if (queue === undefined) {
         throw new Error(`Job queue is not configured: ${payload.queueName}`)
@@ -41,7 +41,16 @@ export function createBullMQJobBackend(
         let start = 0
         while (true) {
           const jobs = await queue.getJobs(OUTSTANDING_JOB_STATES, start, start + 99)
-          if (jobs.some((job) => job.name === name)) return true
+          if (
+            jobs.some(
+              (job) =>
+                job.name === name ||
+                (registry.has(job.name) && registry.resolveName(job.name) === name)
+            )
+          ) {
+            return true
+          }
+
           if (jobs.length < 100) break
 
           start += 100

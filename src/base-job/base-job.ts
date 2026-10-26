@@ -73,11 +73,8 @@ function backendFor(jobClass: object): JobBackend {
 
 function argumentSerializerFor(jobClass: object): JobArgumentSerializer {
   return (
-    configuredValue(
-      jobClass,
-      argumentSerializerByJobClass,
-      DEFAULT_ARGUMENT_SERIALIZER
-    ) ?? DEFAULT_ARGUMENT_SERIALIZER
+    configuredValue(jobClass, argumentSerializerByJobClass, DEFAULT_ARGUMENT_SERIALIZER) ??
+    DEFAULT_ARGUMENT_SERIALIZER
   )
 }
 
@@ -149,10 +146,7 @@ export class BaseJob<TResult = unknown> {
     return backend.isEnqueued(jobName)
   }
 
-  static withBackend<TJobClass extends object>(
-    this: TJobClass,
-    backend: JobBackend
-  ): TJobClass {
+  static withBackend<TJobClass extends object>(this: TJobClass, backend: JobBackend): TJobClass {
     const jobClass = new Proxy(this, {})
     BaseJob.configure.call(jobClass, {
       backend,
@@ -161,10 +155,7 @@ export class BaseJob<TResult = unknown> {
     return jobClass
   }
 
-  static queueAs<TJobClass extends object>(
-    this: TJobClass,
-    queueName: string
-  ): TJobClass {
+  static queueAs<TJobClass extends object>(this: TJobClass, queueName: string): TJobClass {
     const queuedJobClass = new Proxy(this, {
       get(target, property, receiver) {
         if (property === "queueName") {
@@ -191,5 +182,4 @@ export class BaseJob<TResult = unknown> {
   perform(): TResult {
     throw new Error("Not Implemented")
   }
-
 }

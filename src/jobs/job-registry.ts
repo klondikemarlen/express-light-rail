@@ -8,7 +8,7 @@ type JobConstructor<TArguments extends unknown[], TResult> = {
 
 export type JobRegistrationOptions<TArguments extends unknown[]> = {
   aliases?: readonly string[]
-  deserialize: (...args: unknown[]) => TArguments | Promise<TArguments>
+  deserialize: (...args: unknown[]) => [...TArguments] | Promise<[...TArguments]>
 }
 
 type RegisteredJob = {
@@ -44,6 +44,10 @@ export class JobRegistry {
     for (const registeredName of names) {
       this.registrations.set(registeredName, registration)
     }
+  }
+
+  has(name: string): boolean {
+    return this.registrations.has(name)
   }
 
   resolveName(name: string): string {

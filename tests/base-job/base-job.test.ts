@@ -20,7 +20,6 @@ class InMemoryJobBackend implements JobBackend<EnqueuedJob> {
     this.jobs.push(job)
     return job
   }
-
 }
 
 describe("src/base-job/base-job.ts", () => {
@@ -71,7 +70,6 @@ describe("src/base-job/base-job.ts", () => {
     })
 
     describe(".performLater", () => {
-
       test("when no backend is configured, rejects the enqueue", async () => {
         // Arrange
         class UnconfiguredJob extends BaseJob<void> {}
@@ -157,9 +155,7 @@ describe("src/base-job/base-job.ts", () => {
         await FormatNumberJob.withBackend(transactionBackend).queueAs("outbox").performLater(3)
 
         // Assert
-        expect(transactionBackend.jobs).toMatchObject([
-          { queueName: "outbox", jobData: ["3"] },
-        ])
+        expect(transactionBackend.jobs).toMatchObject([{ queueName: "outbox", jobData: ["3"] }])
       })
     })
   })
