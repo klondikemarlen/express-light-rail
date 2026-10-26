@@ -29,7 +29,20 @@ export class ChannelManager<User> {
     server: HttpServer,
     private readonly options: ChannelManagerOptions<User>
   ) {
-    this.server = new Server(server, options.serverOptions)
+    const serverOptions = options.serverOptions
+    if (serverOptions?.connectionStateRecovery) {
+      // Recovered sockets need fresh authentication before channel construction too.
+      this.server = new Server(server, {
+        ...serverOptions,
+        connectionStateRecovery: {
+          ...serverOptions.connectionStateRecovery,
+          skipMiddlewares: false,
+        },
+      })
+    } else {
+      this.server = new Server(server, serverOptions)
+    }
+
     for (const [path, ChannelClass] of Object.entries(options.channels)) {
       const namespace = this.server.of(path)
       namespace.use((socket, next) => {

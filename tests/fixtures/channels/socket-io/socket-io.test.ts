@@ -153,6 +153,45 @@ describe("Socket.IO channel consumers", () => {
     expect(channelStarts).toBe(0)
   })
 
+  test("when a connection is recovered, reauthenticates before restoring its channel", async () => {
+    // Arrange
+    class AuthenticatedChannel extends BaseChannel<User> {
+      subscribed(): void {
+        this.broadcast("authenticated.user", this.currentUser.id)
+      }
+    }
+
+    const host = await startHost({
+      channels: { "/records": AuthenticatedChannel },
+      authenticate,
+      serverOptions: {
+        connectionStateRecovery: {
+          skipMiddlewares: true,
+        },
+      },
+    })
+    const transport = openTransport(host.url)
+    const socket = transport.socket("/records", { auth: { userId: "alice" } })
+    const initialUser = waitForEvent(socket, "authenticated.user")
+    await connectSocket(socket)
+    await initialUser
+
+    // Act
+    const disconnected = waitForEvent(socket, "disconnect")
+    transport.engine?.close()
+    await disconnected
+    const restoredUser = waitForEvent(socket, "authenticated.user")
+    const rejectedRecovery = waitForEvent(socket, "disconnect").then(() => {
+      throw new Error("The recovered channel was disconnected")
+    })
+    await connectSocket(socket)
+    const [user] = await Promise.race([restoredUser, rejectedRecovery])
+
+    // Assert
+    expect(socket.recovered).toBe(true)
+    expect(user).toBe("alice")
+  })
+
   test("when record updates are published, targets only the owning user", async () => {
     // Arrange
     const events = new PubSub<HostEvents>()
@@ -498,7 +537,6 @@ describe("Socket.IO channel consumers", () => {
         socket.on("barrier", (acknowledge: (ready: boolean) => void) => {
           acknowledge(true)
         })
-        socket.on("invalidated", () => invalidations.push("invalidated"))
       }
 
       subscribed(): void {
@@ -521,6 +559,7 @@ describe("Socket.IO channel consumers", () => {
     })
     const transport = openTransport(host.url)
     const socket = transport.socket("/records", { auth: { userId: "alice" } })
+    socket.on("invalidated", () => invalidations.push("invalidated"))
     const subscription = waitForEvent(socket, "subscribed")
 
     // Act
