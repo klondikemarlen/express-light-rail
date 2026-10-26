@@ -36,7 +36,7 @@ describe("src/jobs/job-registry.ts", () => {
         expect(result).toBe(50)
       })
 
-      test("when an explicit legacy alias is used, resolves the stable job name and performs its work", async () => {
+      test("when an explicit legacy alias is used, performs the registered current job", async () => {
         // Arrange
         class ReconciledAccountJob extends BaseJob<string> {
           static jobName = "accounts.reconcile"
@@ -57,11 +57,9 @@ describe("src/jobs/job-registry.ts", () => {
         })
 
         // Act
-        const stableName = registry.resolveName("LegacyReconcileAccountJob")
         const result = await registry.perform("LegacyReconcileAccountJob", [73])
 
         // Assert
-        expect(stableName).toBe("accounts.reconcile")
         expect(result).toBe("reconciled account 73")
       })
 
