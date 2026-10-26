@@ -4,7 +4,7 @@ Rails-inspired controller, policy, service, serializer, and job primitives for E
 
 If you are asking yourself, "Should I be using Rails instead?", the answer is yes. This
 library is a focused shim for teams that need Express and TypeScript but still want a few
-boring Rails conventions.
+helpful Rails conventions.
 
 Adopt one primitive at a time. Keep your Express application, routers, middleware, and unmigrated handlers; controllers, policies, services, serializers, and jobs are independent building blocks, not an all-or-nothing framework.
 
