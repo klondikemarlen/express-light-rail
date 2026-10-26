@@ -33,6 +33,7 @@ type BaseJobClass<TConstructorArgs extends unknown[], TResult> = (new (
 ) => BaseJob<TResult>) & {
   name: string
   queueName: string
+  jobName?: string
 }
 
 const DEFAULT_ARGUMENT_SERIALIZER: JobArgumentSerializer = {
@@ -72,16 +73,14 @@ function backendFor(jobClass: object): JobBackend {
 
 function argumentSerializerFor(jobClass: object): JobArgumentSerializer {
   return (
-    configuredValue(
-      jobClass,
-      argumentSerializerByJobClass,
-      DEFAULT_ARGUMENT_SERIALIZER
-    ) ?? DEFAULT_ARGUMENT_SERIALIZER
+    configuredValue(jobClass, argumentSerializerByJobClass, DEFAULT_ARGUMENT_SERIALIZER) ??
+    DEFAULT_ARGUMENT_SERIALIZER
   )
 }
 
 export class BaseJob<TResult = unknown> {
   static queueName = "default"
+  static jobName?: string
 
   protected readonly jobFilename?: string
 
@@ -128,7 +127,7 @@ export class BaseJob<TResult = unknown> {
     logger.debug(`Enqueuing job: ${this.name}`)
     return backend.enqueue({
       queueName: this.queueName,
-      jobName: this.name,
+      jobName: this.jobName ?? this.name,
       jobData: serializedArguments,
       jobFilename: instance.jobFilename,
     })
@@ -136,7 +135,7 @@ export class BaseJob<TResult = unknown> {
 
   static async isJobEnqueued<TConstructorArgs extends unknown[]>(
     this: BaseJobClass<TConstructorArgs, unknown>,
-    jobName: string = this.name
+    jobName: string = this.jobName ?? this.name
   ): Promise<boolean> {
     const backend = backendFor(this)
 
@@ -147,10 +146,16 @@ export class BaseJob<TResult = unknown> {
     return backend.isEnqueued(jobName)
   }
 
-  static queueAs<TJobClass extends object>(
-    this: TJobClass,
-    queueName: string
-  ): TJobClass {
+  static withBackend<TJobClass extends object>(this: TJobClass, backend: JobBackend): TJobClass {
+    const jobClass = new Proxy(this, {})
+    BaseJob.configure.call(jobClass, {
+      backend,
+      argumentSerializer: argumentSerializerFor(this),
+    })
+    return jobClass
+  }
+
+  static queueAs<TJobClass extends object>(this: TJobClass, queueName: string): TJobClass {
     const queuedJobClass = new Proxy(this, {
       get(target, property, receiver) {
         if (property === "queueName") {
@@ -177,5 +182,4 @@ export class BaseJob<TResult = unknown> {
   perform(): TResult {
     throw new Error("Not Implemented")
   }
-
 }

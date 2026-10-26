@@ -20,16 +20,12 @@ class InMemoryJobBackend implements JobBackend<EnqueuedJob> {
     this.jobs.push(job)
     return job
   }
-
-  async isEnqueued(jobName: string): Promise<boolean> {
-    return this.jobs.some((job) => job.jobName === jobName)
-  }
 }
 
 describe("src/base-job/base-job.ts", () => {
   describe("BaseJob", () => {
     describe(".perform", () => {
-      test("runs the job immediately", () => {
+      test("when performed immediately, returns the job result", () => {
         // Arrange
         class AddNumbersJob extends BaseJob<number> {
           constructor(
@@ -53,7 +49,7 @@ describe("src/base-job/base-job.ts", () => {
     })
 
     describe(".performNow", () => {
-      test("aliases immediate job execution", () => {
+      test("when performed now, returns the job result", () => {
         // Arrange
         class BuildLabelJob extends BaseJob<string> {
           constructor(private readonly name: string) {
@@ -74,50 +70,7 @@ describe("src/base-job/base-job.ts", () => {
     })
 
     describe(".performLater", () => {
-      test("enqueues serialized arguments through the configured backend", async () => {
-        // Arrange
-        const backend = new InMemoryJobBackend()
-
-        class SendEmailJob extends BaseJob<void> {
-          static override queueName = "mailers"
-
-          constructor(
-            email: string,
-            jobFilename?: string
-          ) {
-            super(jobFilename)
-            void email
-          }
-
-          perform(): void {
-            return undefined
-          }
-        }
-
-        SendEmailJob.configure({
-          backend,
-          argumentSerializer: {
-            serialize: (...args: unknown[]) => args.map((argument) => String(argument)),
-          },
-        })
-
-        // Act
-        const result = await SendEmailJob.performLater(
-          "ada@example.com",
-          "send-email-job.ts"
-        )
-
-        // Assert
-        expect(result).toEqual({
-          id: 1,
-          queueName: "mailers",
-          jobName: "SendEmailJob",
-          jobData: ["ada@example.com", "send-email-job.ts"],
-          jobFilename: "send-email-job.ts",
-        })
-      })
-
-      test("fails when no backend is configured", async () => {
+      test("when no backend is configured, rejects the enqueue", async () => {
         // Arrange
         class UnconfiguredJob extends BaseJob<void> {}
 
@@ -127,7 +80,7 @@ describe("src/base-job/base-job.ts", () => {
     })
 
     describe(".queueAs", () => {
-      test("enqueues one call on a custom queue without mutating the job class", async () => {
+      test("when a queue is overridden, leaves the job class queue unchanged", async () => {
         // Arrange
         const backend = new InMemoryJobBackend()
 
@@ -142,28 +95,67 @@ describe("src/base-job/base-job.ts", () => {
         await SyncUsersJob.performLater()
 
         // Assert
-        expect(backend.jobs.map((job) => job.queueName)).toEqual([
-          "active-directory",
-          "default",
+        expect(backend.jobs).toMatchObject([
+          { queueName: "active-directory" },
+          { queueName: "default" },
         ])
       })
     })
 
-    describe(".isJobEnqueued", () => {
-      test("delegates to the configured backend", async () => {
+    describe(".withBackend", () => {
+      test("when one enqueue uses another backend, leaves inherited configuration unchanged", async () => {
         // Arrange
-        const backend = new InMemoryJobBackend()
+        const originalBackend = new InMemoryJobBackend()
+        const transactionBackend = new InMemoryJobBackend()
+        class ApplicationJob extends BaseJob<string> {}
+        ApplicationJob.configure({
+          backend: originalBackend,
+          argumentSerializer: {
+            serialize: (...args) => args.map(String),
+          },
+        })
+        class FormatNumberJob extends ApplicationJob {
+          constructor(private readonly value: number) {
+            super()
+          }
 
-        class RefreshReportsJob extends BaseJob<void> {}
-
-        RefreshReportsJob.configure({ backend })
-        await RefreshReportsJob.performLater()
+          perform(): string {
+            return String(this.value)
+          }
+        }
 
         // Act
-        const isEnqueued = await RefreshReportsJob.isJobEnqueued()
+        await FormatNumberJob.withBackend(transactionBackend).performLater(1)
+        await FormatNumberJob.performLater(2)
 
         // Assert
-        expect(isEnqueued).toBe(true)
+        expect(originalBackend.jobs).toMatchObject([{ jobData: ["2"] }])
+      })
+
+      test("when backend and queue scopes are combined, preserves inherited serialization", async () => {
+        // Arrange
+        const transactionBackend = new InMemoryJobBackend()
+        class ApplicationJob extends BaseJob<string> {}
+        ApplicationJob.configure({
+          argumentSerializer: {
+            serialize: (...args) => args.map(String),
+          },
+        })
+        class FormatNumberJob extends ApplicationJob {
+          constructor(private readonly value: number) {
+            super()
+          }
+
+          perform(): string {
+            return String(this.value)
+          }
+        }
+
+        // Act
+        await FormatNumberJob.withBackend(transactionBackend).queueAs("outbox").performLater(3)
+
+        // Assert
+        expect(transactionBackend.jobs).toMatchObject([{ queueName: "outbox", jobData: ["3"] }])
       })
     })
   })

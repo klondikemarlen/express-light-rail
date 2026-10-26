@@ -18,6 +18,7 @@ const externalDependencies = [
   "typescript-eslint",
   "vitest/config",
   "vite-tsconfig-paths",
+  "bullmq",
 ]
 
 export default defineConfig({
@@ -29,6 +30,7 @@ export default defineConfig({
         "tooling/prettier": resolve(__dirname, "src/tooling/prettier.ts"),
         "tooling/vitest": resolve(__dirname, "src/tooling/vitest.ts"),
         "contracts/index": resolve(__dirname, "src/contracts/index.ts"),
+        "jobs/bullmq/index": resolve(__dirname, "src/jobs/bullmq/index.ts"),
       },
       name: "ExpressLightRail",
       fileName: (format, entryName) => `${entryName}.${format === "es" ? "js" : "cjs"}`,
