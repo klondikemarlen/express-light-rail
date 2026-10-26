@@ -1,6 +1,6 @@
 # Base Job
 
-`BaseJob` provides the Rails ActiveJob-like call surface without choosing a queue, worker, pub/sub channel, or persistence model for the host app.
+`BaseJob` provides the Rails ActiveJob-like call surface independently of queue persistence. Hosts can keep a custom `JobBackend` or adopt the [optional BullMQ runtime](../../docs/jobs.md), with explicit worker lifecycle and host-owned transactional outbox handling.
 
 ```ts
 export class SendWelcomeEmailJob extends BaseJob<void> {
@@ -28,11 +28,12 @@ Jobs should:
 - expose `performLater(...)` for host-owned queue persistence
 - use `queueAs(...)` for one-off queue overrides
 - serialize arguments through a configured `JobArgumentSerializer` when needed
+- select a stable `jobName` for durable payloads and use `withBackend(...)` for transaction-scoped enqueue without changing global configuration
 
 Jobs should not:
 
 - assume a database table name
-- assume a worker implementation
+- force a worker implementation on ordinary package imports
 - assume pub/sub channel semantics
 - embed app-specific model lookup rules in this package
 
@@ -48,4 +49,4 @@ const backend: JobBackend = {
 }
 ```
 
-A future Sequelize model argument serializer can plug into `JobArgumentSerializer` once it proves reusable across WRAP, travel-authorization, and ELCC.
+Model reference serialization and lookup policy stay host-owned. The optional runtime's registry pairs each job with a deserializer; missing or deliberately obsolete records can be explicitly skipped instead of silently dropping durable work. See [jobs ownership and migration](../../docs/jobs.md).

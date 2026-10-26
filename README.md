@@ -32,6 +32,7 @@ Detailed convention docs live beside the source:
 - [`src/base-job/README.md`](src/base-job/README.md)
 - [Opt-in lint, format and Vitest presets](docs/tooling.md)
 - [Browser-safe query and policy contracts](docs/browser-contracts.md)
+- [Optional BullMQ jobs, outbox handoff, and worker lifecycle](docs/jobs.md)
 
 ## Concepts
 
@@ -48,8 +49,7 @@ Route → Controller → Policy → Service → Model → Serializer → Respons
 - Model helpers add concrete scope typing and scoped primary-key reloads without replacing a model's Sequelize superclass; definitions and database setup remain host-owned.
 - Services hold business logic and multi-step mutations behind `ServiceName.perform(args)`.
 - Serializers own response shape, association preload checks, and list/detail/reference views.
-- Jobs provide `perform`, `performNow`, `performLater`, and `queueAs` without choosing a queue
-  backend for the host application.
+- Jobs provide `perform`, `performNow`, `performLater`, and non-mutating queue/backend overrides. Use a host backend or opt into the BullMQ runtime.
 
 Start with the [incremental adoption guide](docs/adoption.md) for host ownership,
 audited compatibility boundaries, a runnable Express example, and consumer cutover recipes.
@@ -139,11 +139,9 @@ The next host-agnostic pieces worth extracting from WRAP, travel-authorization, 
 
 - Query conventions: small helpers for naming, composing, and testing SQL literal builders without
   forcing class-based query objects.
-- Job argument serialization: optional Sequelize model argument serialization for `BaseJob`, while
-  keeping queue persistence and workers host-owned.
+- Job argument serialization: optional ORM-specific model reference serialization beyond the registered host deserializers.
 
-Keep these out until they remove duplicated code in at least two host apps. Pub/sub channels,
-workers, Auth0/JWT details, and app bootstrapping still belong in host applications.
+Keep future extractions out until they remove duplicated code in at least two host apps. The [optional jobs runtime](docs/jobs.md) provides reusable queue processing; concrete workers, persistence, queue policy, Auth0/JWT details, and application bootstrapping remain host-owned. Channels are tracked separately.
 
 ## Example
 
