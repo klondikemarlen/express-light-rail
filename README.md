@@ -266,6 +266,8 @@ await SendWelcomeEmailJob.queueAs("slow-mailers").performLater(1)
 
 ### Without Docker
 
+Use the project-local Node.js version selected by `.tool-versions`; run `asdf install nodejs` if it is not installed. No shell-level `ASDF_NODEJS_VERSION` override is needed.
+
 ```bash
 npm install
 npm run check-types
