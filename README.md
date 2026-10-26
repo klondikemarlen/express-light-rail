@@ -70,7 +70,6 @@ router
 The second route is still a `create` action on a namespaced controller. That keeps migration
 small for Express users while nudging route design toward Rails resources.
 
-
 ## Conventions from sibling apps
 
 These conventions are intentionally aligned with WRAP, travel-authorization, and ELCC-style APIs:
@@ -295,6 +294,8 @@ Publishing is intentionally boring npm:
    npm whoami
    ```
 
+   If authentication has expired, run `npm login` and complete its browser challenge. Release automation may invoke both login and publish; account approval and two-factor authentication still belong to the maintainer. Keep credentials out of versioned files.
+
 2. Confirm the registry version and choose the next semver version:
 
    ```bash
@@ -323,3 +324,5 @@ Publishing is intentionally boring npm:
 
 `prepublishOnly` runs type checks, the Vitest suite, and the package build. Run
 `npm pack --dry-run --json` first when changing package contents.
+
+After npm accepts a publication, allow for its [publish-time scanning delay](https://github.blog/changelog/2026-07-28-npm-publish-time-malware-scanning-and-dual-use-metadata/) before expecting the version to be installable. A temporary registry lookup or install `404` after an accepted publish is not proof that publication failed; do not republish or bump the version merely to bypass that delay. Fetch the exact released tarball once available, verify its commit and artifact identity, and run the relevant consumer smoke checks before closing the delivery issue.

@@ -13,11 +13,7 @@ For host-owned `User`, `RecordPayload`, `users`, and `canRead` definitions:
 ```ts
 import { createServer } from "node:http"
 import express from "express"
-import {
-  BaseChannel,
-  ChannelManager,
-  PubSub,
-} from "express-light-rail/channels/socket-io"
+import { BaseChannel, ChannelManager, PubSub } from "express-light-rail/channels/socket-io"
 
 const updates = new PubSub<{ changed: [record: RecordPayload] }>()
 
