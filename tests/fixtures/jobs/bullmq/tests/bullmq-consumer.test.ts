@@ -289,6 +289,36 @@ describe("installed BullMQ consumer", () => {
       const finished = await queue.getJob(enqueued.id!)
       expect(finished?.attemptsMade).toBe(1)
     })
+
+    test("when recording a skip fails, records the attempt failure in the host outbox", async () => {
+      // Arrange
+      const outbox = await OutboxRecord.create({
+        queueName: "records",
+        jobName: "record-process-v2",
+        jobData: [999, "missing"],
+        status: "pending",
+      })
+      const registry = registryForRecord()
+      const { queue, events, prefix } = await createQueue("records")
+      const backend = createBullMQJobBackend(registry, new Map([["records", queue]]))
+      const enqueued = await backend.enqueue(outbox.get())
+      await startWorker("records", registry, prefix, 1, {
+        onSkipped() {
+          throw new Error("skip status update unavailable")
+        },
+        async onFailed() {
+          await OutboxRecord.update({ status: "failed" }, { where: { id: outbox.id } })
+        },
+      })
+
+      // Act
+      const result = enqueued.waitUntilFinished(events, 5000)
+
+      // Assert
+      await expect(result).rejects.toThrow("skip status update unavailable")
+      const failed = await outbox.reload()
+      expect(failed.status).toBe("failed")
+    })
   })
 
   describe("durable identities and failures", () => {

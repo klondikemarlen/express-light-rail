@@ -22,15 +22,19 @@ export function createBullMQJobWorker(
     queueName,
     async (job) => {
       try {
-        const result = await registry.perform(job.name, job.data.jobData)
-        await hooks.onCompleted?.(job, result)
-        return result
-      } catch (error) {
-        if (error instanceof JobSkippedError) {
+        let result: unknown
+        try {
+          result = await registry.perform(job.name, job.data.jobData)
+        } catch (error) {
+          if (!(error instanceof JobSkippedError)) throw error
+
           await hooks.onSkipped?.(job, error)
           return undefined
         }
 
+        await hooks.onCompleted?.(job, result)
+        return result
+      } catch (error) {
         try {
           await hooks.onFailed?.(job, error)
         } catch (reportingError) {
