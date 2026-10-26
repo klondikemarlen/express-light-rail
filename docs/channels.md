@@ -55,6 +55,8 @@ server.listen(3000)
 
 The manager attaches a native Socket.IO server but never calls `listen()`. Authentication is required for each mapped namespace before channel construction, and its returned user becomes that channel's typed `currentUser`. Rejected or nullish authentication does not start the channel. Client authentication failures have a generic message; the original error is available through the server logger and optional `onError(error, socket)` hook. Authorize subscriptions and each outgoing record in host policies; authentication alone is not resource authorization.
 
+Connection-state recovery also requires fresh authentication before a channel is recreated. When `serverOptions.connectionStateRecovery` is enabled, the manager forces `skipMiddlewares: false`, overriding Socket.IO's default or a supplied `true`. Other recovery settings remain host-owned.
+
 `broadcast(event, ...payload)` sends only to the channel's connected socket, not its namespace, another user, or a global room. The bound `invalidate` callback sends a payload-free `invalidated` event only while connected. `channels.server` exposes the native Socket.IO server for host options and native composition; using its broader broadcast APIs requires the host's own targeting/authorization rules.
 
 ## Subscription and cancellation ownership
