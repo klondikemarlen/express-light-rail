@@ -66,6 +66,16 @@
         "types": "./dist/commonjs/jobs/bullmq/index.d.ts",
         "default": "./dist/jobs/bullmq/index.cjs"
       }
+    },
+    "./channels/socket-io": {
+      "import": {
+        "types": "./dist/channels/socket-io/index.d.ts",
+        "default": "./dist/channels/socket-io/index.js"
+      },
+      "require": {
+        "types": "./dist/commonjs/channels/socket-io/index.d.ts",
+        "default": "./dist/channels/socket-io/index.cjs"
+      }
     }
   },
   "files": [
@@ -109,6 +119,7 @@
     "eslint-config-prettier": ">=10 <11",
     "express": "^4.21.2",
     "prettier": ">=3 <4",
+    "socket.io": ">=4.8.4 <5",
     "typescript": ">=5.7 <6",
     "typescript-eslint": ">=8.24 <9",
     "vite": ">=5 <6",
@@ -129,6 +140,9 @@
       "optional": true
     },
     "prettier": {
+      "optional": true
+    },
+    "socket.io": {
       "optional": true
     },
     "typescript": {
@@ -162,6 +176,7 @@
     "eslint": "^9.20.1",
     "eslint-config-prettier": "^10.0.1",
     "express": "^4.21.2",
+    "socket.io": "^4.8.4",
     "supertest": "^7.0.0",
     "ts-node-dev": "^2.0.0",
     "tsc-alias": "^1.8.10",

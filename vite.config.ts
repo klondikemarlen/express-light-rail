@@ -19,6 +19,7 @@ const externalDependencies = [
   "vitest/config",
   "vite-tsconfig-paths",
   "bullmq",
+  "socket.io",
 ]
 
 export default defineConfig({
@@ -31,6 +32,7 @@ export default defineConfig({
         "tooling/vitest": resolve(__dirname, "src/tooling/vitest.ts"),
         "contracts/index": resolve(__dirname, "src/contracts/index.ts"),
         "jobs/bullmq/index": resolve(__dirname, "src/jobs/bullmq/index.ts"),
+        "channels/socket-io/index": resolve(__dirname, "src/channels/socket-io/index.ts"),
       },
       name: "ExpressLightRail",
       fileName: (format, entryName) => `${entryName}.${format === "es" ? "js" : "cjs"}`,

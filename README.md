@@ -33,6 +33,7 @@ Detailed convention docs live beside the source:
 - [Opt-in lint, format and Vitest presets](docs/tooling.md)
 - [Browser-safe query and policy contracts](docs/browser-contracts.md)
 - [Optional BullMQ jobs, outbox handoff, and worker lifecycle](docs/jobs.md)
+- [Optional authenticated Socket.IO channels and pub/sub](docs/channels.md)
 
 ## Concepts
 
@@ -50,6 +51,7 @@ Route → Controller → Policy → Service → Model → Serializer → Respons
 - Services hold business logic and multi-step mutations behind `ServiceName.perform(args)`.
 - Serializers own response shape, association preload checks, and list/detail/reference views.
 - Jobs provide `perform`, `performNow`, `performLater`, and non-mutating queue/backend overrides. Use a host backend or opt into the BullMQ runtime.
+- Channels provide socket-local delivery and guarded pub/sub through an optional Socket.IO integration; hosts own authentication, policies, and event payloads.
 
 Start with the [incremental adoption guide](docs/adoption.md) for host ownership,
 audited compatibility boundaries, a runnable Express example, and consumer cutover recipes.
@@ -67,7 +69,6 @@ router
 
 The second route is still a `create` action on a namespaced controller. That keeps migration
 small for Express users while nudging route design toward Rails resources.
-
 
 ## Conventions from sibling apps
 
@@ -141,7 +142,7 @@ The next host-agnostic pieces worth extracting from WRAP, travel-authorization, 
   forcing class-based query objects.
 - Job argument serialization: optional ORM-specific model reference serialization beyond the registered host deserializers.
 
-Keep future extractions out until they remove duplicated code in at least two host apps. The [optional jobs runtime](docs/jobs.md) provides reusable queue processing; concrete workers, persistence, queue policy, Auth0/JWT details, and application bootstrapping remain host-owned. Channels are tracked separately.
+Keep future extractions out until they remove duplicated code in at least two host apps. The [optional jobs runtime](docs/jobs.md) and [optional channels](docs/channels.md) provide reusable mechanisms; concrete workers, persistence, queue policy, Auth0/JWT details, domain events, and application bootstrapping remain host-owned.
 
 ## Example
 
@@ -293,6 +294,8 @@ Publishing is intentionally boring npm:
    npm whoami
    ```
 
+   If authentication has expired, run `npm login` and complete its browser challenge. Release automation may invoke both login and publish; account approval and two-factor authentication still belong to the maintainer. Keep credentials out of versioned files.
+
 2. Confirm the registry version and choose the next semver version:
 
    ```bash
@@ -321,3 +324,5 @@ Publishing is intentionally boring npm:
 
 `prepublishOnly` runs type checks, the Vitest suite, and the package build. Run
 `npm pack --dry-run --json` first when changing package contents.
+
+After npm accepts a publication, allow for its [publish-time scanning delay](https://github.blog/changelog/2026-07-28-npm-publish-time-malware-scanning-and-dual-use-metadata/) before expecting the version to be installable. A temporary registry lookup or install `404` after an accepted publish is not proof that publication failed; do not republish or bump the version merely to bypass that delay. Fetch the exact released tarball once available, verify its commit and artifact identity, and run the relevant consumer smoke checks before closing the delivery issue.
