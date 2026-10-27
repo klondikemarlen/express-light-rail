@@ -160,6 +160,8 @@ The inheritance paths are `BaseController → ApplicationController → ThreadsC
 
 Routes stay normal Express resource declarations. Controllers perform ordinary model reads directly, authorize mutations, pass policy-selected attributes to services, and serialize the result. Services extend `BaseService` and use `.perform(...)`; serializers extend `BaseSerializer` and use the same call style. Model validation rejects missing or blank required text, while the API error handler translates validation failures into safe HTTP 400 responses.
 
+Mutation bodies must be JSON objects. Shared API middleware rejects arrays before policy filtering, so malformed attribute shapes return a client error rather than an internal failure.
+
 The list queries use fixed ordering and bounded pagination, not unrestricted client-supplied Sequelize conditions. Error handling stays Express-native: public `BaseApiError` failures preserve their status and body, while unexpected errors return a generic 500 without internal details.
 
 ## Check your changes
