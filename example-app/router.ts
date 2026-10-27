@@ -1,59 +1,64 @@
-import { BaseApiError, BaseController } from "express-light-rail"
+import { BaseApiError } from "express-light-rail"
 import { Router, type NextFunction, type Request, type Response } from "express"
 
-import { CreateTaskService } from "@example-app/create-task-service.js"
-import { tasks, users, type User } from "@example-app/domain.js"
-import { TasksPolicy } from "@example-app/tasks-policy.js"
-import { TaskSerializer } from "@example-app/task-serializer.js"
+import { CommentsController } from "@example-app/controllers/comments-controller.js"
+import { ThreadsController } from "@example-app/controllers/threads-controller.js"
+import { UsersController } from "@example-app/controllers/users-controller.js"
+import { User } from "@example-app/models/index.js"
 
-type AuthenticatedRequest = Request & { currentUser: User }
-
-abstract class ApplicationController extends BaseController<never, AuthenticatedRequest> {
-  protected get currentUser(): User {
-    return this.request.currentUser
-  }
-}
-
-class TasksController extends ApplicationController {
-  async index(): Promise<void> {
-    if (this.request.query.fail === "true") throw new Error("Internal demo failure")
-
-    const policy = new TasksPolicy(this.currentUser)
-    const requestedStatus = this.request.query.status
-    const filteredTasks = tasks.filter(
-      (task) =>
-        policy.canSee(task) && (requestedStatus === undefined || task.status === requestedStatus)
-    )
-    const serializedTasks = TaskSerializer.perform(filteredTasks)
-    this.response.json({ tasks: serializedTasks })
-  }
-
-  async create(): Promise<void> {
-    const user = this.currentUser
-    const policy = new TasksPolicy(user)
-    if (!policy.canCreate()) {
-      throw new BaseApiError("forbidden", "You cannot create tasks", {}, 403)
+async function authenticateDemoUser(
+  request: Request,
+  _response: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const username = request.get("x-user-id")
+    if (!username) {
+      next(new BaseApiError("unauthorized", "Authentication required", {}, 401))
+      return
     }
 
-    const attributes = policy.permitCreate(this.request.body)
-    const task = CreateTaskService.perform(user, attributes)
-    const serializedTask = TaskSerializer.perform(task)
-    this.response.status(201).json({ task: serializedTask })
-  }
-}
+    const user = await User.findOne({
+      where: {
+        username,
+      },
+    })
+    if (!user) {
+      next(new BaseApiError("unauthorized", "Authentication required", {}, 401))
+      return
+    }
 
-function currentUser(request: Request, _response: Response, next: NextFunction): void {
-  const identifier = request.get("x-user-id")
-  if (!identifier || !Object.prototype.hasOwnProperty.call(users, identifier)) {
-    next(new BaseApiError("unauthorized", "Authentication required", {}, 401))
-    return
+    Object.assign(request, {
+      currentUser: user,
+    })
+    next()
+  } catch (error: unknown) {
+    next(error)
   }
-
-  Object.assign(request, { currentUser: users[identifier] })
-  next()
 }
 
 export const router = Router()
-router.use(currentUser)
-router.get("/tasks", TasksController.index)
-router.post("/tasks", TasksController.create)
+
+router.use(authenticateDemoUser)
+
+router.route("/users").get(UsersController.index)
+router.route("/users/:userId").get(UsersController.show)
+
+router.route("/threads").get(ThreadsController.index).post(ThreadsController.create)
+
+router
+  .route("/threads/:threadId")
+  .get(ThreadsController.show)
+  .patch(ThreadsController.update)
+  .delete(ThreadsController.destroy)
+
+router
+  .route("/threads/:threadId/comments")
+  .get(CommentsController.index)
+  .post(CommentsController.create)
+
+router
+  .route("/threads/:threadId/comments/:commentId")
+  .get(CommentsController.show)
+  .patch(CommentsController.update)
+  .delete(CommentsController.destroy)

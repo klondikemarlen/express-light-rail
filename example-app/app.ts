@@ -1,3 +1,4 @@
+import { ValidationError } from "@sequelize/core"
 import express from "express"
 import { BaseApiError, createApiErrorHandler, createApiNotFoundHandler } from "express-light-rail"
 
@@ -15,6 +16,10 @@ app.use(
   "/api",
   createApiErrorHandler({
     classifyError(error) {
+      if (error instanceof ValidationError) {
+        return new BaseApiError("invalid_input", "Check the required fields", {}, 400)
+      }
+
       if (
         error instanceof Error &&
         "expose" in error &&
