@@ -1,46 +1,86 @@
 # Optional Socket.IO channels
 
-`express-light-rail/channels/socket-io` provides `BaseChannel`, `ChannelManager`, and a typed, process-local `PubSub`. It supports Socket.IO `>=4.8.4 <5`; install the transport explicitly. Ordinary `express-light-rail` imports do not load Socket.IO, attach an HTTP listener, or start a connection. Host applications retain Express routing, users, authentication, authorization, event schemas, persistence, and deployment.
+`express-light-rail/channels/socket-io` provides `BaseChannel`, `ChannelManager`, and a typed, process-local `PubSub`. Use one authenticated application namespace to carry labeled packets for multiple resource kinds. A channel represents a connection's authenticated context, not a model superclass or a requirement to create one class per model.
+
+Socket.IO `>=4.8.4 <5` is an explicit optional transport. Ordinary `express-light-rail` imports do not load Socket.IO, attach an HTTP listener, or start a connection. Hosts retain users, authentication, resource policies, event catalogs, serialization, persistence, Express routing, and deployment.
 
 ```sh
 npm install express-light-rail socket.io@^4.8.4
 ```
 
-## Attach to ordinary HTTP
+## One application channel, multiple resource kinds
 
-For host-owned `User`, `RecordPayload`, `users`, and `canRead` definitions:
+Keep a host-owned packet catalog shared between the server and client. Its keys describe application events; its values are serialized wire payloads, not ORM instances. For example:
+
+```ts
+export type ApplicationPackets = {
+  "tasks.updated": { id: string; title: string }
+  "notifications.created": { id: string; body: string }
+}
+```
+
+`ChannelPacket<ApplicationPackets>` is a discriminated union: a `tasks.updated` packet requires the task payload, while a `notifications.created` packet requires the notification payload. Both travel through the same Socket.IO `packet` event as one `{ type, payload }` argument. Event labels are host-owned strings, not a package-owned model registry.
+
+The following server example uses ordinary records to make ownership visible. The authenticated user does not automatically have access to every resource; each event is authorized before serialization and delivery.
 
 ```ts
 import { createServer } from "node:http"
 import express from "express"
 import { BaseChannel, ChannelManager, PubSub } from "express-light-rail/channels/socket-io"
 
-const updates = new PubSub<{ changed: [record: RecordPayload] }>()
+// Share this catalog with the frontend through the host's own contracts module.
+type ApplicationPackets = {
+  "tasks.updated": { id: string; title: string }
+  "notifications.created": { id: string; body: string }
+}
+type User = { id: string }
+type Task = { id: string; title: string; ownerId: string }
+type Notification = { id: string; body: string; recipientId: string }
+type DomainEvents = {
+  "tasks.updated": [task: Task]
+  "notifications.created": [notification: Notification]
+}
 
-class RecordsChannel extends BaseChannel<User> {
+const updates = new PubSub<DomainEvents>()
+const users = new Map<string, User>([
+  ["alice", { id: "alice" }],
+  ["bob", { id: "bob" }],
+])
+
+class ApplicationChannel extends BaseChannel<User, ApplicationPackets> {
   subscribed(): void {
-    updates.subscribe("changed", this.changed, this.invalidate)
+    updates.subscribe("tasks.updated", this.taskUpdated, this.invalidate)
+    updates.subscribe("notifications.created", this.notificationCreated, this.invalidate)
+    super.subscribed()
   }
 
   unsubscribed(): void {
-    updates.unsubscribe("changed", this.changed)
+    updates.unsubscribe("tasks.updated", this.taskUpdated)
+    updates.unsubscribe("notifications.created", this.notificationCreated)
+    super.unsubscribed()
   }
 
-  private readonly changed = (record: RecordPayload): void => {
-    if (!canRead(this.currentUser, record)) return
+  private readonly taskUpdated = (task: Task): void => {
+    if (task.ownerId !== this.currentUser.id) return
 
-    this.broadcast("changed", record)
+    const payload = { id: task.id, title: task.title }
+    this.broadcast({ type: "tasks.updated", payload })
+  }
+
+  private readonly notificationCreated = (notification: Notification): void => {
+    if (notification.recipientId !== this.currentUser.id) return
+
+    const payload = { id: notification.id, body: notification.body }
+    this.broadcast({ type: "notifications.created", payload })
   }
 }
 
 const application = express()
 const server = createServer(application)
 const channels = new ChannelManager(server, {
-  channels: {
-    "/records": RecordsChannel,
-  },
+  channels: { "/updates": ApplicationChannel },
   authenticate(socket) {
-    // Example lookup only: production hosts verify their own credentials here.
+    // Demonstration lookup only: production hosts verify their own credentials.
     const identifier: unknown = socket.handshake.auth.userId
     if (typeof identifier !== "string") throw new Error("Authentication required")
 
@@ -53,62 +93,103 @@ const channels = new ChannelManager(server, {
 server.listen(3000)
 ```
 
-The manager attaches a native Socket.IO server but never calls `listen()`. Authentication is required for each mapped namespace before channel construction, and its returned user becomes that channel's typed `currentUser`. Rejected or nullish authentication does not start the channel. Client authentication failures have a generic message; the original error is available through the server logger and optional `onError(error, socket)` hook. Authorize subscriptions and each outgoing record in host policies; authentication alone is not resource authorization.
+Production hosts should call their existing resource policies and serializers in place of the example ownership comparisons and object projections. Multiple resource handlers belong in this application channel when they share the connection context. Separate namespaces remain available for genuinely separate connection requirements; they are not needed merely because two events concern different models.
 
-Connection-state recovery also requires fresh authentication before a channel is recreated. When `serverOptions.connectionStateRecovery` is enabled, the manager forces `skipMiddlewares: false`, overriding Socket.IO's default or a supplied `true`. Other recovery settings remain host-owned.
+The manager attaches a native Socket.IO server but never calls `listen()`. Authentication is required before channel construction, and its returned user becomes that channel's typed `currentUser`. Rejected or nullish authentication does not start a channel. Clients receive a generic authentication error; the original error is available through the server logger and optional `onError(error, socket)` hook. Authentication and packet labels are not resource authorization.
 
-`broadcast(event, ...payload)` sends only to the channel's connected socket, not its namespace, another user, or a global room. The bound `invalidate` callback sends a payload-free `invalidated` event only while connected. `channels.server` exposes the native Socket.IO server for host options and native composition; using its broader broadcast APIs requires the host's own targeting/authorization rules.
+## Browser-safe packet handling
 
-## Subscription and cancellation ownership
+Import `ChannelPacket` and `ChannelServerEvents` directly from `express-light-rail/contracts`. They are transport-free types: importing them does not load Socket.IO, Express, Sequelize, Winston, or Node modules. The Socket.IO entrypoint also re-exports these types for backend convenience.
 
-Create the process-local bus in the host and keep each original listener identity for teardown. Event names and argument tuples belong to that host, not a package-owned event catalog. `publish(event, ...payload)` dispatches synchronously; it does not await asynchronous listeners or promise ordered completion, persistence, or cross-process delivery.
+With the shared `ApplicationPackets` catalog and host UI functions `updateTask` and `addNotification`, a native Socket.IO client can use one data listener:
 
-`subscribe(event, listener, onError?)` returns an `AbortSignal` for that registration. `unsubscribe(event, listener)` removes the most recent matching registration, aborts its signal synchronously, and leaves earlier duplicate registrations intact. Removing an absent registration is harmless. Future dispatch and pending error recovery are suppressed for cancelled registrations. Synchronous listener throws, rejected listener promises, and recovery-hook failures are contained and logged through the package's Winston logger; one failing listener does not prevent other listeners from receiving the event.
+```ts
+import { io, type Socket } from "socket.io-client"
+import type { ChannelServerEvents } from "express-light-rail/contracts"
 
-Already-running JavaScript and domain I/O cannot be forcibly cancelled. Pass the returned signal into cancellable I/O, or check it after an `await` before broadcasting. Recheck host authorization against any freshly loaded state too. For example, inside a channel's `subscribed()` hook:
+const socket: Socket<ChannelServerEvents<ApplicationPackets>> = io(
+  "http://localhost:3000/updates",
+  { auth: { userId: "alice" } }
+)
+
+socket.on("packet", (packet) => {
+  switch (packet.type) {
+    case "tasks.updated":
+      updateTask(packet.payload)
+      break
+    case "notifications.created":
+      addNotification(packet.payload)
+      break
+  }
+})
+```
+
+`packet.type` narrows `packet.payload` without a cast. A mismatched label/payload pair is a type error even if both individual values belong to the catalog. TypeScript contracts are not runtime validation of arbitrary network input; hosts own validation for untrusted data and any separately registered inbound socket commands. This package does not dispatch inbound commands from packet labels.
+
+Native lifecycle controls remain separate, payload-free events: `subscribed`, `unsubscribed`, and `invalidated`. Call `super.subscribed()` after installing listeners to signal readiness. `invalidated` indicates the client should refresh authoritative application state; it does not report successful delivery of a particular model update.
+
+## Delivery and subscription ownership
+
+`broadcast(packet)` sends only to that channel's connected socket, not the namespace, another user, or a global room. The bound `invalidate` callback also emits only while connected. `channels.server` exposes the native Socket.IO server for host composition; broader broadcast/room APIs require the host's own targeting and authorization rules.
+
+Create process-local buses in the host and retain original listener identities for teardown. `PubSub` keeps its tuple-based `publish(event, ...payload)` API for internal domain events; it does not impose the wire packet's DTO shape on host records. Publishing dispatches synchronously and does not await asynchronous listeners or promise ordered asynchronous completion, persistence, or cross-process delivery.
+
+`subscribe(event, listener, onError?)` returns an `AbortSignal` for that registration. `unsubscribe(event, listener)` removes the newest matching registration, aborts its signal synchronously, and leaves earlier duplicate registrations intact. Removing an absent registration is harmless. Cancellation suppresses future dispatch and pending error recovery. Listener throws, rejected listener promises, and recovery-hook failures are contained and logged; one failing listener does not prevent other listeners from receiving an event.
+
+Already-running JavaScript and domain I/O cannot be forcibly cancelled. Pass the returned signal into cancellable I/O, or check it after an `await` before broadcasting. Recheck host policy against freshly loaded state too. For example, an asynchronous task handler in the application channel can retain its subscription signal:
 
 ```ts
 private subscription?: AbortSignal
 
 subscribed(): void {
-  this.subscription = updates.subscribe("changed", this.changed, this.invalidate)
+  this.subscription = updates.subscribe("tasks.updated", this.taskUpdated, this.invalidate)
+  super.subscribed()
 }
 
 unsubscribed(): void {
-  updates.unsubscribe("changed", this.changed)
+  updates.unsubscribe("tasks.updated", this.taskUpdated)
+  super.unsubscribed()
 }
 
-private readonly changed = async (record: RecordPayload): Promise<void> => {
-  const visible = await canReadCurrentRecord(this.currentUser, record)
+private readonly taskUpdated = async (task: Task): Promise<void> => {
+  const visible = await canReadCurrentTask(this.currentUser, task)
   if (this.subscription?.aborted || !visible) return
 
-  this.broadcast("changed", record)
+  const payload = { id: task.id, title: task.title }
+  this.broadcast({ type: "tasks.updated", payload })
 }
 ```
 
-Retain that listener identity and unsubscribe it in `unsubscribed()`; a new arrow function is not the same registration. A failed initialization also runs `unsubscribed()`, so teardown must tolerate partially initialized subscriptions. Database transactions and request-local async context are host concerns; a callback deferred from a committed transaction must not reuse that transaction for later queries.
+Here `canReadCurrentTask` is a host-owned policy operation. Unsubscribe with the original callback, not a new arrow function. Failed initialization also runs `unsubscribed()`, so teardown must tolerate partially installed subscriptions. Transactions and request-local async context stay host-owned: a callback deferred until commit must not reuse that transaction for later queries.
 
-## Lifecycle and shutdown
+## Reconnection and shutdown
 
-Register listeners in `subscribed()`, not constructors, and remove them in `unsubscribed()`. The manager installs disconnect tracking before invoking asynchronous initialization. On failure or disconnect it waits for initialization to settle, then invokes teardown once. A late registration from a slow initializer is therefore still removed. Initialization failure disconnects only its namespace, preserving other channels on a shared transport. Cleanup errors are reported without retaining the connection in the manager; errors from the reporting hook are logged and contained too.
+Treat packets as live notifications, not a durable source of truth or an exactly-once delivery mechanism. Clients should refresh authoritative HTTP state after reconnection or invalidation; the package does not add persistence, replay cursors, retry queues, or cross-process fanout. Use the host's normal Socket.IO adapter and broker topology when multiple processes need to publish.
+
+Connection-state recovery requires fresh authentication before recreating the channel. With `serverOptions.connectionStateRecovery`, the manager forces `skipMiddlewares: false`, overriding Socket.IO's default or a supplied `true`; other recovery settings remain host-owned. Native replay does not rerun a host's outgoing resource policy. Enable it only when the host's session identity and replay-authorization requirements are satisfied; otherwise leave it disabled and refresh application state instead.
+
+The manager installs disconnect tracking before asynchronous initialization. On failure or disconnect, it waits for initialization to settle and invokes teardown once, including registrations installed late by a slow initializer. Initialization failure disconnects only its namespace, preserving other namespaces on a shared transport. Cleanup and reporting-hook errors are contained without retaining the connection.
 
 ```ts
 await channels.close()
 ```
 
-`close()` is idempotent, stops channel connections, and waits for pending initialization and teardown. It then closes the native Socket.IO server **and the attached HTTP server**. Stop host producers first; this is whole-server shutdown, not a way to detach channels while leaving HTTP running. Hooks must eventually settle: the package cannot terminate a host's never-resolving promise. Keep timeout/cancellation policy and process signal handling in the host.
+`close()` is idempotent, stops channel connections, waits for initialization and teardown, then closes the native Socket.IO server **and the attached HTTP server**. Stop host producers first; this is whole-server shutdown, not detaching channels while HTTP keeps running. Hooks must eventually settle. Keep timeout/cancellation policy and process signal handling in the host.
 
-## Incremental adoption and wire compatibility
+## Upgrade from the raw-event API
 
-Adopt one namespace at a time, retaining ordinary Express routes and host policies. Replace only the copied channel manager/base and guarded pub/sub mechanism. This extraction is grounded in WRAP's socket-local broadcasts, per-user policy checks, lifecycle hooks, and newest-first duplicate removal; it does not ship WRAP's user model, Auth0/JWT middleware, notification/workflow event catalog, or database hooks.
+The packet API changes the application-data contract from version 0.7.0:
 
-This is not a drop-in WRAP client migration. Audit Socket.IO versions, HTTP path, namespace, origin/CORS settings, handshake credentials, event names, payloads, and recovery behavior against the host's actual client. Configure transport options through `serverOptions`. Existing clients expecting WRAP's host-specific authentication or events require an explicit coordinated cutover and rollback plan; no host is automatically upgraded.
+- Supply the host catalog as the second generic: `BaseChannel<User, ApplicationPackets>`.
+- Replace `broadcast("tasks.updated", task)` with `broadcast({ type: "tasks.updated", payload })`, authorizing and serializing the payload first.
+- Replace resource-specific client socket listeners with `socket.on("packet", ...)` and dispatch by `packet.type`.
+- Map the single application class to `/updates` or the host's selected namespace. Audit HTTP path, namespace, origin/CORS, handshake credentials, native lifecycle signals and recovery settings separately.
+
+There is no dual emission or raw-string overload. Coordinate server/client deployment and rollback; a version bump does not migrate a host automatically. Existing clients, including WRAP-specific clients, require an explicit wire-contract audit. Jobs and internal `PubSub` tuples do not change.
 
 ## Runnable example and consumer verification
 
-The repository's [Socket.IO consumer](https://github.com/klondikemarlen/express-light-rail/tree/main/tests/fixtures/channels/socket-io) includes an ordinary Express/HTTP example with one host-owned channel and policy. Its `npm run example` entrypoint uses the installed package; authentication identifiers in the example are demonstration data, not production credentials.
-
-From the repository, build and pack a candidate, then run:
+The [Socket.IO consumer](https://github.com/klondikemarlen/express-light-rail/tree/main/tests/fixtures/channels/socket-io) includes an ordinary Express/HTTP example with one application channel, two resource packet kinds, and host-owned policies. Authentication identifiers are demonstration data, not production credentials. It exercises actual independent clients, typed ESM/CommonJS consumers, targeting, callback cancellation, failure recovery and lifecycle cleanup.
 
 ```sh
 npm run build
@@ -116,4 +197,4 @@ npm pack
 bash tests/fixtures/channels/socket-io/smoke.sh /absolute/path/to/express-light-rail-VERSION.tgz
 ```
 
-The isolated consumer exercises real Socket.IO clients, authorization/targeting, failure recovery, cancellation and disconnect cleanup, strict declarations, and plain Node module imports. For release proof, fetch the exact registry artifact with `npm pack express-light-rail@VERSION` and pass that tarball to the same command. A local candidate is not proof of registry publication or host adoption.
+For release proof, fetch the exact published tarball with `npm pack express-light-rail@VERSION` and pass it to the same command. A local candidate is not proof of publication or host adoption. The two [browser contract consumers](browser-contracts.md) separately exercise host-owned packet catalogs without importing the transport. Support is bounded by the documented runtime/transport/compiler ranges and observed consumer checks, not a claim that every existing host has already adopted this protocol.
