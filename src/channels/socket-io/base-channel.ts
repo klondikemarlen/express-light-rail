@@ -1,26 +1,34 @@
 import type { Socket } from "socket.io"
 
-export class BaseChannel<User> {
+import type { ChannelPacket } from "@/contracts/channel-packet.js"
+
+export class BaseChannel<User, Packets extends object> {
   constructor(
     protected readonly currentUser: User,
     protected readonly socket: Socket
   ) {}
 
   subscribed(): void | Promise<void> {
-    this.broadcast("subscribed")
+    if (!this.socket.connected) return
+
+    this.socket.emit("subscribed")
   }
 
   unsubscribed(): void | Promise<void> {
-    this.broadcast("unsubscribed")
-  }
-
-  broadcast(event: string, ...payload: unknown[]): void {
     if (!this.socket.connected) return
 
-    this.socket.emit(event, ...payload)
+    this.socket.emit("unsubscribed")
+  }
+
+  broadcast(packet: ChannelPacket<Packets>): void {
+    if (!this.socket.connected) return
+
+    this.socket.emit("packet", packet)
   }
 
   protected readonly invalidate = (): void => {
-    this.broadcast("invalidated")
+    if (!this.socket.connected) return
+
+    this.socket.emit("invalidated")
   }
 }

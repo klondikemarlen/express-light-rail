@@ -31,9 +31,9 @@ Detailed convention docs live beside the source:
 - [`src/base-serializer/README.md`](src/base-serializer/README.md)
 - [`src/base-job/README.md`](src/base-job/README.md)
 - [Opt-in lint, format and Vitest presets](docs/tooling.md)
-- [Browser-safe query and policy contracts](docs/browser-contracts.md)
+- [Browser-safe query, policy, and channel packet contracts](docs/browser-contracts.md)
 - [Optional BullMQ jobs, outbox handoff, and worker lifecycle](docs/jobs.md)
-- [Optional authenticated Socket.IO channels and pub/sub](docs/channels.md)
+- [One authenticated Socket.IO channel with typed resource packets](docs/channels.md)
 
 ## Concepts
 
@@ -51,7 +51,7 @@ Route → Controller → Policy → Service → Model → Serializer → Respons
 - Services hold business logic and multi-step mutations behind `ServiceName.perform(args)`.
 - Serializers own response shape, association preload checks, and list/detail/reference views.
 - Jobs provide `perform`, `performNow`, `performLater`, and non-mutating queue/backend overrides. Use a host backend or opt into the BullMQ runtime.
-- Channels provide socket-local delivery and guarded pub/sub through an optional Socket.IO integration; hosts own authentication, policies, and event payloads.
+- Channels carry typed, labeled resource packets over one authenticated application namespace through an optional Socket.IO integration. Hosts authorize each resource event and own its serialized payload; a model does not need its own channel class.
 
 Start with the [incremental adoption guide](docs/adoption.md) for host ownership,
 audited compatibility boundaries, a runnable Express example, and consumer cutover recipes.
@@ -133,8 +133,8 @@ Adopt incrementally: first install the handlers around existing Express routes, 
 
 ## Extraction roadmap
 
-Common browser query, pagination, order, and policy contracts are available through
-`express-light-rail/contracts`; endpoint envelopes and model-specific fields remain host-owned.
+Common browser query, pagination, order, policy, and labeled channel packet contracts are available through
+`express-light-rail/contracts`; application packet catalogs, endpoint envelopes and model-specific fields remain host-owned.
 
 The next host-agnostic pieces worth extracting from WRAP, travel-authorization, and ELCC are:
 

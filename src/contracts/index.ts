@@ -1,3 +1,5 @@
+export type { ChannelPacket, ChannelServerEvents } from "@/contracts/channel-packet.js"
+
 export type ModelOrder =
   | [string, string]
   | [string, string, string]
