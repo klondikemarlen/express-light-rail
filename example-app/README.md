@@ -176,4 +176,6 @@ npm run check-types
 npm run lint
 ```
 
+The tests arrange users, threads, and comments with [Factory Shark factories](../tests/example-app/factories/), using real Sequelize records. Each test owns its data; the application's startup seeds are not shared test fixtures. See [the testing guide](../tests/README.md#discussion-board-factories) for factory usage and the pinned development ORM/dialect versions. Factory Shark is test tooling, not an application runtime requirement.
+
 The application tests use an isolated in-memory SQLite database, not the example's persistent file. For the framework's individual conventions, see the [controller](../src/base-controller/README.md), [policy](../src/base-policy/README.md), [service](../src/base-service/README.md), and [serializer](../src/base-serializer/README.md) guides. Jobs and channels are separate examples in the [jobs](../docs/jobs.md) and [channels](../docs/channels.md) guides. Existing applications should follow the [incremental adoption guide](../docs/adoption.md) rather than replacing their persistence or authentication with this demo.
