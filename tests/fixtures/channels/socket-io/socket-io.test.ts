@@ -17,8 +17,8 @@ import {
 type User = { id: string }
 type HostPackets = {
   "authenticated.user": { userId: string }
-  "record.updated": { recordId: string }
-  "project.updated": { projectId: string }
+  "records:updated": { recordId: string }
+  "projects:updated": { projectId: string }
   "other.changed": { recordId: string }
   "late.success": { message: string }
 }
@@ -28,9 +28,9 @@ type ClientCommands = {
 }
 type TypedClientSocket = ClientSocket<ChannelServerEvents<HostPackets>, ClientCommands>
 type HostEvents = {
-  "record.updated": [recordId: string, ownerId: string]
+  "records:updated": [recordId: string, ownerId: string]
   "other.changed": [recordId: string]
-  "project.updated": [projectId: string, ownerId: string]
+  "projects:updated": [projectId: string, ownerId: string]
   "sync.failure": []
   "async.failure": []
   "success.after.cancel": []
@@ -177,7 +177,7 @@ describe("Socket.IO channel consumers", () => {
     // Arrange
     class AuthenticatedChannel extends BaseChannel<User, HostPackets> {
       subscribed(): void {
-        this.broadcast({ type: "authenticated.user", payload: { userId: this.currentUser.id } })
+        this.broadcast("authenticated.user", { userId: this.currentUser.id })
       }
     }
 
@@ -220,7 +220,7 @@ describe("Socket.IO channel consumers", () => {
     class RecordsChannel extends BaseChannel<User, HostPackets> {
       private readonly onRecordUpdated = (recordId: string, ownerId: string): void => {
         if (this.currentUser.id === ownerId) {
-          this.broadcast({ type: "record.updated", payload: { recordId } })
+          this.broadcast("records:updated", { recordId })
         }
       }
 
@@ -232,12 +232,12 @@ describe("Socket.IO channel consumers", () => {
       }
 
       subscribed(): void {
-        events.subscribe("record.updated", this.onRecordUpdated)
+        events.subscribe("records:updated", this.onRecordUpdated)
         super.subscribed()
       }
 
       unsubscribed(): void {
-        events.unsubscribe("record.updated", this.onRecordUpdated)
+        events.unsubscribe("records:updated", this.onRecordUpdated)
         super.unsubscribed()
       }
     }
@@ -265,12 +265,12 @@ describe("Socket.IO channel consumers", () => {
     await Promise.all([aliceSubscription, bobSubscription])
 
     const aliceRecord = waitForEvent(alice, "packet")
-    events.publish("record.updated", "record-1", "alice")
+    events.publish("records:updated", "record-1", "alice")
     await aliceRecord
     await acknowledge(bob, "barrier")
 
     // Assert
-    expect(aliceEvents).toEqual([{ type: "record.updated", payload: { recordId: "record-1" } }])
+    expect(aliceEvents).toEqual([{ type: "records:updated", payload: { recordId: "record-1" } }])
     expect(bobEvents).toEqual([])
   })
 
@@ -281,6 +281,12 @@ describe("Socket.IO channel consumers", () => {
     const projectReaders = new Set(["alice", "bob"])
 
     class ApplicationChannel extends BaseChannel<User, HostPackets> {
+      protected isCurrentUser(userId: string): boolean {
+        return this.currentUser.id === userId
+      }
+    }
+
+    class UpdatesChannel extends ApplicationChannel {
       constructor(user: User, socket: ServerSocket) {
         super(user, socket)
         socket.on("barrier", (acknowledge: (ready: boolean) => void) => {
@@ -289,32 +295,32 @@ describe("Socket.IO channel consumers", () => {
       }
 
       private readonly onRecordUpdated = (recordId: string, ownerId: string): void => {
-        if (this.currentUser.id === ownerId && recordReaders.has(this.currentUser.id)) {
-          this.broadcast({ type: "record.updated", payload: { recordId } })
+        if (this.isCurrentUser(ownerId) && recordReaders.has(this.currentUser.id)) {
+          this.broadcast("records:updated", { recordId })
         }
       }
 
       private readonly onProjectUpdated = (projectId: string, ownerId: string): void => {
-        if (this.currentUser.id === ownerId && projectReaders.has(this.currentUser.id)) {
-          this.broadcast({ type: "project.updated", payload: { projectId } })
+        if (this.isCurrentUser(ownerId) && projectReaders.has(this.currentUser.id)) {
+          this.broadcast("projects:updated", { projectId })
         }
       }
 
       subscribed(): void {
-        events.subscribe("record.updated", this.onRecordUpdated)
-        events.subscribe("project.updated", this.onProjectUpdated)
+        events.subscribe("records:updated", this.onRecordUpdated)
+        events.subscribe("projects:updated", this.onProjectUpdated)
         super.subscribed()
       }
 
       unsubscribed(): void {
-        events.unsubscribe("record.updated", this.onRecordUpdated)
-        events.unsubscribe("project.updated", this.onProjectUpdated)
+        events.unsubscribe("records:updated", this.onRecordUpdated)
+        events.unsubscribe("projects:updated", this.onProjectUpdated)
         super.unsubscribed()
       }
     }
 
     const host = await startHost({
-      channels: { "/updates": ApplicationChannel },
+      channels: { "/updates": UpdatesChannel },
       authenticate,
     })
     const aliceTransport = openTransport(host.url)
@@ -335,30 +341,30 @@ describe("Socket.IO channel consumers", () => {
     await Promise.all([aliceSubscription, bobSubscription])
 
     const aliceRecord = waitForEvent(alice, "packet")
-    events.publish("record.updated", "record-1", "alice")
+    events.publish("records:updated", "record-1", "alice")
     await aliceRecord
     await acknowledge(bob, "barrier")
 
     const aliceProject = waitForEvent(alice, "packet")
-    events.publish("project.updated", "project-1", "alice")
+    events.publish("projects:updated", "project-1", "alice")
     await aliceProject
     await acknowledge(bob, "barrier")
 
     const bobProject = waitForEvent(bob, "packet")
-    events.publish("project.updated", "project-2", "bob")
+    events.publish("projects:updated", "project-2", "bob")
     await bobProject
     await acknowledge(alice, "barrier")
 
     recordReaders.delete("alice")
-    events.publish("record.updated", "record-2", "alice")
+    events.publish("records:updated", "record-2", "alice")
     await Promise.all([acknowledge(alice, "barrier"), acknowledge(bob, "barrier")])
 
     // Assert
     expect(alicePackets).toEqual([
-      { type: "record.updated", payload: { recordId: "record-1" } },
-      { type: "project.updated", payload: { projectId: "project-1" } },
+      { type: "records:updated", payload: { recordId: "record-1" } },
+      { type: "projects:updated", payload: { projectId: "project-1" } },
     ])
-    expect(bobPackets).toEqual([{ type: "project.updated", payload: { projectId: "project-2" } }])
+    expect(bobPackets).toEqual([{ type: "projects:updated", payload: { projectId: "project-2" } }])
   })
 
   test("when host events are published, targets only their namespace", async () => {
@@ -374,16 +380,16 @@ describe("Socket.IO channel consumers", () => {
       }
 
       private readonly onRecordUpdated = (recordId: string): void => {
-        this.broadcast({ type: "record.updated", payload: { recordId } })
+        this.broadcast("records:updated", { recordId })
       }
 
       subscribed(): void {
-        events.subscribe("record.updated", this.onRecordUpdated)
+        events.subscribe("records:updated", this.onRecordUpdated)
         super.subscribed()
       }
 
       unsubscribed(): void {
-        events.unsubscribe("record.updated", this.onRecordUpdated)
+        events.unsubscribe("records:updated", this.onRecordUpdated)
         super.unsubscribed()
       }
     }
@@ -397,7 +403,7 @@ describe("Socket.IO channel consumers", () => {
       }
 
       private readonly onOtherChanged = (recordId: string): void => {
-        this.broadcast({ type: "other.changed", payload: { recordId } })
+        this.broadcast("other.changed", { recordId })
       }
 
       subscribed(): void {
@@ -430,7 +436,7 @@ describe("Socket.IO channel consumers", () => {
     await Promise.all([recordsSubscription, otherSubscription])
 
     const recordEvent = waitForEvent(records, "packet")
-    events.publish("record.updated", "record-1", "alice")
+    events.publish("records:updated", "record-1", "alice")
     await recordEvent
     await acknowledge(other, "barrier")
 
@@ -441,7 +447,7 @@ describe("Socket.IO channel consumers", () => {
 
     // Assert
     expect(otherEvents).toEqual([{ type: "other.changed", payload: { recordId: "record-2" } }])
-    expect(recordEvents).toEqual([{ type: "record.updated", payload: { recordId: "record-1" } }])
+    expect(recordEvents).toEqual([{ type: "records:updated", payload: { recordId: "record-1" } }])
   })
 
   test("when a client disconnects, unsubscribes its host listeners once", async () => {
@@ -565,7 +571,7 @@ describe("Socket.IO channel consumers", () => {
         try {
           await gate.promise
           if (this.signal?.aborted !== true) {
-            this.broadcast({ type: "late.success", payload: { message: "late.success" } })
+            this.broadcast("late.success", { message: "late.success" })
           }
         } finally {
           callbackFinished.resolve()

@@ -48,45 +48,44 @@ async function verifyInstalledFormat(channelExports, format) {
   ])
 
   class ApplicationChannel extends channelExports.BaseChannel {
+    isCurrentUser(userId) {
+      return this.currentUser.id === userId
+    }
+  }
+
+  class UpdatesChannel extends ApplicationChannel {
     constructor(user, socket) {
       super(user, socket)
       this.onRecordUpdated = (record) => {
-        if (record.ownerId === this.currentUser.id) {
-          this.broadcast({
-            type: "record.updated",
-            payload: { id: record.id, value: record.value },
-          })
+        if (this.isCurrentUser(record.ownerId)) {
+          this.broadcast("records:updated", { id: record.id, value: record.value })
         }
       }
       this.onProjectUpdated = (project) => {
         const canReceiveProject =
-          project.ownerId === this.currentUser.id &&
-          this.currentUser.projectIds.includes(project.id)
+          this.isCurrentUser(project.ownerId) && this.currentUser.projectIds.includes(project.id)
         if (canReceiveProject) {
-          this.broadcast({
-            type: "project.updated",
-            payload: { id: project.id, name: project.name },
-          })
+          this.broadcast("projects:updated", { id: project.id, name: project.name })
         }
       }
       socket.on("barrier", (acknowledge) => acknowledge(true))
     }
 
     subscribed() {
-      resourceEvents.subscribe("record.updated", this.onRecordUpdated)
-      resourceEvents.subscribe("project.updated", this.onProjectUpdated)
+      resourceEvents.subscribe("records:updated", this.onRecordUpdated)
+      resourceEvents.subscribe("projects:updated", this.onProjectUpdated)
       super.subscribed()
     }
 
     unsubscribed() {
-      resourceEvents.unsubscribe("record.updated", this.onRecordUpdated)
-      resourceEvents.unsubscribe("project.updated", this.onProjectUpdated)
+      resourceEvents.unsubscribe("records:updated", this.onRecordUpdated)
+      resourceEvents.unsubscribe("projects:updated", this.onProjectUpdated)
       super.unsubscribed()
     }
   }
 
   const channelManager = new channelExports.ChannelManager(httpServer, {
-    channels: { "/updates": ApplicationChannel },
+    channels: { "/updates": UpdatesChannel },
     authenticate(socket) {
       const user = users.get(socket.handshake.auth.userId)
       if (user === undefined) throw new Error("The host rejected this user")
@@ -122,35 +121,35 @@ async function verifyInstalledFormat(channelExports, format) {
     await Promise.all([connect(alice), connect(bob)])
     await Promise.all([aliceSubscription, bobSubscription])
 
-    const recordForAlice = waitForPacket(alice, "record.updated")
-    resourceEvents.publish("record.updated", {
+    const recordForAlice = waitForPacket(alice, "records:updated")
+    resourceEvents.publish("records:updated", {
       id: "record-1",
       ownerId: "alice",
       value: "draft",
     })
     assert.deepEqual(await recordForAlice, {
-      type: "record.updated",
+      type: "records:updated",
       payload: { id: "record-1", value: "draft" },
     })
     await acknowledge(bob, "barrier")
 
-    const projectForBob = waitForPacket(bob, "project.updated")
-    resourceEvents.publish("project.updated", {
+    const projectForBob = waitForPacket(bob, "projects:updated")
+    resourceEvents.publish("projects:updated", {
       id: "project-2",
       ownerId: "bob",
       name: "Roadmap",
     })
     assert.deepEqual(await projectForBob, {
-      type: "project.updated",
+      type: "projects:updated",
       payload: { id: "project-2", name: "Roadmap" },
     })
     await acknowledge(alice, "barrier")
 
     assert.deepEqual(alicePackets, [
-      { type: "record.updated", payload: { id: "record-1", value: "draft" } },
+      { type: "records:updated", payload: { id: "record-1", value: "draft" } },
     ])
     assert.deepEqual(bobPackets, [
-      { type: "project.updated", payload: { id: "project-2", name: "Roadmap" } },
+      { type: "projects:updated", payload: { id: "project-2", name: "Roadmap" } },
     ])
     process.stdout.write(
       `${format} package export delivered two policy-filtered resource packets\n`
