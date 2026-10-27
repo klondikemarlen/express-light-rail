@@ -4,8 +4,10 @@ import { Server, type ServerOptions, type Socket } from "socket.io"
 import type { BaseChannel } from "@/channels/socket-io/base-channel.js"
 import { logger } from "@/utils/logger.js"
 
+type ChannelLifecycle = Pick<BaseChannel<unknown, object>, "subscribed" | "unsubscribed">
+
 export type ChannelRoutes<User> = Readonly<
-  Record<string, new (user: User, socket: Socket) => BaseChannel<User>>
+  Record<string, new (user: User, socket: Socket) => ChannelLifecycle>
 >
 
 export type ChannelManagerOptions<User> = {
@@ -86,9 +88,9 @@ export class ChannelManager<User> {
   private connect(
     socket: Socket,
     user: User,
-    ChannelClass: new (user: User, socket: Socket) => BaseChannel<User>
+    ChannelClass: new (user: User, socket: Socket) => ChannelLifecycle
   ): void {
-    let channel: BaseChannel<User> | undefined
+    let channel: ChannelLifecycle | undefined
     let cleanupPromise: Promise<void> | undefined
     // Defer the hook until tracking and the disconnect listener are installed.
     const initialization = Promise.resolve().then(async () => {
