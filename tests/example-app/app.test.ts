@@ -8,14 +8,16 @@ const { originalStorage } = vi.hoisted(() => {
 })
 
 import { sequelize } from "@example-app/database.js"
-import { Comment, Thread } from "@example-app/models/index.js"
-import { seedDatabase } from "@example-app/seed.js"
+import { Comment } from "@example-app/models/index.js"
+
+import { commentFactory } from "@tests/example-app/factories/comment-factory.js"
+import { threadFactory } from "@tests/example-app/factories/thread-factory.js"
+import { userFactory } from "@tests/example-app/factories/user-factory.js"
 
 import { app } from "@example-app/app.js"
 
 beforeEach(async () => {
   await sequelize.sync({ force: true })
-  await seedDatabase()
 })
 
 afterAll(async () => {
@@ -30,7 +32,14 @@ afterAll(async () => {
 describe("discussion board", () => {
   test("when a user lists threads, returns serialized model records", async () => {
     // Arrange
-    const route = request(app).get("/api/threads").set("x-user-id", "bob")
+    const reader = await userFactory.create({
+      username: "bob",
+    })
+    const thread = await threadFactory.create({
+      title: "Welcome to the board",
+      body: "Share what you are building.",
+    })
+    const route = request(app).get("/api/threads").set("x-user-id", reader.username)
 
     // Act
     const response = await route
@@ -40,10 +49,10 @@ describe("discussion board", () => {
     expect(response.body).toEqual({
       threads: [
         {
-          id: 1,
+          id: thread.id,
           title: "Welcome to the board",
           body: "Share what you are building.",
-          authorId: 1,
+          authorId: thread.authorId,
         },
       ],
     })
@@ -51,9 +60,13 @@ describe("discussion board", () => {
 
   test("when a user creates a thread, client fields cannot replace its identity or author", async () => {
     // Arrange
-    const route = request(app).post("/api/threads").set("x-user-id", "bob").send({
+    const author = await userFactory.create({
+      username: "bob",
+    })
+    const existingThread = await threadFactory.create()
+    const route = request(app).post("/api/threads").set("x-user-id", author.username).send({
       id: 99,
-      authorId: 1,
+      authorId: existingThread.authorId,
       title: "A new discussion",
       body: "What are you building?",
     })
@@ -66,7 +79,7 @@ describe("discussion board", () => {
     expect(response.body).toEqual({
       thread: {
         id: 2,
-        authorId: 2,
+        authorId: author.id,
         title: "A new discussion",
         body: "What are you building?",
       },
@@ -75,10 +88,20 @@ describe("discussion board", () => {
 
   test("when an author updates a thread title, preserves omitted body and ownership", async () => {
     // Arrange
-    const route = request(app).patch("/api/threads/1").set("x-user-id", "alice").send({
-      title: "An updated welcome",
-      authorId: 2,
+    const author = await userFactory.create({
+      username: "alice",
     })
+    const thread = await threadFactory.create({
+      authorId: author.id,
+      body: "Share what you are building.",
+    })
+    const route = request(app)
+      .patch(`/api/threads/${thread.id}`)
+      .set("x-user-id", author.username)
+      .send({
+        title: "An updated welcome",
+        authorId: 999,
+      })
 
     // Act
     const response = await route
@@ -87,19 +110,26 @@ describe("discussion board", () => {
     expect(response.status).toBe(200)
     expect(response.body).toEqual({
       thread: {
-        id: 1,
+        id: thread.id,
         title: "An updated welcome",
         body: "Share what you are building.",
-        authorId: 1,
+        authorId: author.id,
       },
     })
   })
 
   test("when another user edits a thread, denies the mutation", async () => {
     // Arrange
-    const route = request(app).patch("/api/threads/1").set("x-user-id", "bob").send({
-      title: "Not my discussion",
+    const otherUser = await userFactory.create({
+      username: "bob",
     })
+    const thread = await threadFactory.create()
+    const route = request(app)
+      .patch(`/api/threads/${thread.id}`)
+      .set("x-user-id", otherUser.username)
+      .send({
+        title: "Not my discussion",
+      })
 
     // Act
     const response = await route
@@ -111,7 +141,10 @@ describe("discussion board", () => {
 
   test("when required thread text is blank, rejects the input", async () => {
     // Arrange
-    const route = request(app).post("/api/threads").set("x-user-id", "alice").send({
+    const author = await userFactory.create({
+      username: "alice",
+    })
+    const route = request(app).post("/api/threads").set("x-user-id", author.username).send({
       title: "   ",
       body: "A valid body",
     })
@@ -126,7 +159,10 @@ describe("discussion board", () => {
 
   test("when a thread does not exist, returns a public not-found error", async () => {
     // Arrange
-    const route = request(app).get("/api/threads/999").set("x-user-id", "alice")
+    const reader = await userFactory.create({
+      username: "alice",
+    })
+    const route = request(app).get("/api/threads/999").set("x-user-id", reader.username)
 
     // Act
     const response = await route
@@ -138,12 +174,19 @@ describe("discussion board", () => {
 
   test("when a user creates a comment, assigns the current user and URL parent", async () => {
     // Arrange
-    const route = request(app).post("/api/threads/1/comments").set("x-user-id", "alice").send({
-      body: "I am building a discussion board.",
-      id: 99,
-      authorId: 2,
-      threadId: 999,
+    const author = await userFactory.create({
+      username: "alice",
     })
+    const thread = await threadFactory.create()
+    const route = request(app)
+      .post(`/api/threads/${thread.id}/comments`)
+      .set("x-user-id", author.username)
+      .send({
+        body: "I am building a discussion board.",
+        id: 99,
+        authorId: thread.authorId,
+        threadId: 999,
+      })
 
     // Act
     const response = await route
@@ -152,19 +195,31 @@ describe("discussion board", () => {
     expect(response.status).toBe(201)
     expect(response.body).toEqual({
       comment: {
-        id: 2,
+        id: 1,
         body: "I am building a discussion board.",
-        authorId: 1,
-        threadId: 1,
+        authorId: author.id,
+        threadId: thread.id,
       },
     })
   })
 
   test("when the thread author edits somebody else's comment, denies the mutation", async () => {
     // Arrange
-    const route = request(app).patch("/api/threads/1/comments/1").set("x-user-id", "alice").send({
-      body: "Not my comment",
+    const threadAuthor = await userFactory.create({
+      username: "alice",
     })
+    const thread = await threadFactory.create({
+      authorId: threadAuthor.id,
+    })
+    const comment = await commentFactory.create({
+      threadId: thread.id,
+    })
+    const route = request(app)
+      .patch(`/api/threads/${thread.id}/comments/${comment.id}`)
+      .set("x-user-id", threadAuthor.username)
+      .send({
+        body: "Not my comment",
+      })
 
     // Act
     const response = await route
@@ -176,12 +231,14 @@ describe("discussion board", () => {
 
   test("when a comment is requested under another existing thread, returns not found", async () => {
     // Arrange
-    const thread = await Thread.create({
-      authorId: 2,
-      title: "Another discussion",
-      body: "Separate comments",
+    const reader = await userFactory.create({
+      username: "bob",
     })
-    const route = request(app).get(`/api/threads/${thread.id}/comments/1`).set("x-user-id", "bob")
+    const comment = await commentFactory.create()
+    const otherThread = await threadFactory.create()
+    const route = request(app)
+      .get(`/api/threads/${otherThread.id}/comments/${comment.id}`)
+      .set("x-user-id", reader.username)
 
     // Act
     const response = await route
@@ -193,7 +250,13 @@ describe("discussion board", () => {
 
   test("when an author deletes a thread, returns an empty successful response", async () => {
     // Arrange
-    const route = request(app).delete("/api/threads/1").set("x-user-id", "alice")
+    const author = await userFactory.create({
+      username: "alice",
+    })
+    const thread = await threadFactory.create({
+      authorId: author.id,
+    })
+    const route = request(app).delete(`/api/threads/${thread.id}`).set("x-user-id", author.username)
 
     // Act
     const response = await route
@@ -205,13 +268,26 @@ describe("discussion board", () => {
 
   test("when an author deletes a thread, removes its comments through the model relationship", async () => {
     // Arrange
-    const route = request(app).delete("/api/threads/1").set("x-user-id", "alice")
+    const author = await userFactory.create({
+      username: "alice",
+    })
+    const thread = await threadFactory.create({
+      authorId: author.id,
+    })
+    await commentFactory.create({
+      threadId: thread.id,
+    })
+    const route = request(app).delete(`/api/threads/${thread.id}`).set("x-user-id", author.username)
 
     // Act
     await route
 
     // Assert
-    const comments = await Comment.findAll({ where: { threadId: 1 } })
+    const comments = await Comment.findAll({
+      where: {
+        threadId: thread.id,
+      },
+    })
     expect(comments).toEqual([])
   })
 
@@ -229,7 +305,10 @@ describe("discussion board", () => {
 
   test("when a JSON array is submitted as thread attributes, rejects it as invalid input", async () => {
     // Arrange
-    const route = request(app).post("/api/threads").set("x-user-id", "alice").send([null])
+    const author = await userFactory.create({
+      username: "alice",
+    })
+    const route = request(app).post("/api/threads").set("x-user-id", author.username).send([null])
 
     // Act
     const response = await route

@@ -4,6 +4,7 @@ import {
   InferAttributes,
   InferCreationAttributes,
   Model,
+  type NonAttribute,
 } from "@sequelize/core"
 
 import { sequelize } from "@example-app/database.js"
@@ -14,6 +15,8 @@ export class Thread extends Model<InferAttributes<Thread>, InferCreationAttribut
   declare title: string
   declare body: string
   declare authorId: number
+
+  declare author?: NonAttribute<User>
 }
 
 Thread.init(
