@@ -8,7 +8,7 @@ Keep the package focused. Host applications own their domain models, concrete ro
 
 ## Current Package Surface
 
-- `API` - base controller that maps Express route handlers to instance actions.
+- `BaseController` - maps Express route handlers to instance actions and supplies request cancellation signals by default.
 - `BaseApiError` - structured API error shape: `{ error: { code, msg, meta } }`.
 - `BasePolicy` and `PolicyFactory` - Rails/Pundit-like action checks, policy scopes, and permitted attributes.
 - `BaseService` - service object base with `ServiceName.perform(args)` call-site ergonomics.
@@ -40,6 +40,7 @@ Controller responsibilities:
 
 - Map RESTful route handlers to instance methods: `index`, `show`, `create`, `update`, `destroy`.
 - Expose request helpers: `params`, `query`, `pagination`, `buildWhere`, `buildFilterScopes`, and `buildOrder`.
+- Own generic request cancellation in the package; hosts extend `BaseController` as `ApplicationController` and define project-specific identity access such as `currentUser` or `user`.
 - Orchestrate policy checks, service calls, and response serialization.
 - Avoid embedding business rules.
 

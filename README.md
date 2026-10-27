@@ -35,6 +35,26 @@ Detailed convention docs live beside the source:
 - [Optional BullMQ jobs, outbox handoff, and worker lifecycle](docs/jobs.md)
 - [One authenticated Socket.IO channel with typed resource packets](docs/channels.md)
 
+## Controller upgrade from 0.9
+
+Update controller imports and inheritance together when upgrading from 0.9 or earlier:
+
+- `import { API } ...; class UsersController extends API<TModel, RequestType>` becomes
+  `import { BaseController } ...; class UsersController extends BaseController<TModel, RequestType>`.
+- `BaseController.API<TModel, RequestType>` becomes
+  `BaseController<TModel, RequestType>`.
+
+The retired controller exports and namespace are not retained as aliases. Other package APIs are
+unchanged by this class rename.
+
+Every `BaseController` instance has an inherited `signal`. When the request already has a valid
+`request.signal`, the controller reuses that exact host-owned signal. Otherwise, the package creates
+one signal for the request and aborts it on request abort or an unfinished response close; ordinary
+response completion does not abort it. No per-route host signal wrapper is required. This is
+transport cancellation, not automatic cancellation of service, ORM, database, or transaction work:
+pass `this.signal` explicitly to a cooperative service or driver and implement its cancellation
+behavior there.
+
 ## Concepts
 
 Use the package to keep an Express API on a predictable request path:
@@ -129,7 +149,7 @@ app.use(
 )
 ```
 
-Adopt incrementally: first install the handlers around existing Express routes, then move individual routes to `API` controllers when useful. Since 0.4.0, controllers call `next(error)` instead of responding or logging internally, so install the package handler or retain a host error handler before upgrading controller-based routes. Errors after response headers have been sent are delegated to the next Express error handler.
+Adopt incrementally: first install the handlers around existing Express routes, then move individual routes to `BaseController` controllers when useful. Since 0.4.0, controller actions pass thrown or rejected errors to Express with `next(error)` instead of responding or logging internally, so install the package handler or retain a host error handler before upgrading controller-based routes. Errors after response headers have been sent are delegated to the next Express error handler.
 
 ## Extraction roadmap
 
@@ -148,12 +168,22 @@ Keep future extractions out until they remove duplicated code in at least two ho
 
 ```ts
 import { type Request } from "express"
-import { API, BaseService, PolicyFactory } from "express-light-rail"
+import type { Model } from "@sequelize/core"
+import { BaseController, BaseService, PolicyFactory } from "express-light-rail"
 
 import { User } from "@/models/index.js"
 
 type ControllerRequest = Request & {
   currentUser: User
+}
+
+abstract class ApplicationController<TModel extends Model = never> extends BaseController<
+  TModel,
+  ControllerRequest
+> {
+  protected get currentUser(): User {
+    return this.request.currentUser
+  }
 }
 
 export class UsersPolicy extends PolicyFactory<User, User>(User) {
@@ -182,9 +212,9 @@ export class CreateUserService extends BaseService<Promise<User>> {
   }
 }
 
-export class UsersController extends API<User, ControllerRequest> {
+export class UsersController extends ApplicationController<User> {
   async create() {
-    const policy = new UsersPolicy(this.request.currentUser, User.build())
+    const policy = new UsersPolicy(this.currentUser, User.build())
     const attributes = policy.permitAttributesForCreate(this.request.body)
     const user = await CreateUserService.perform(attributes)
 
