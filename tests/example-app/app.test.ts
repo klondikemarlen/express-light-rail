@@ -191,12 +191,24 @@ describe("discussion board", () => {
     expect(response.body.error.code).toBe("not_found")
   })
 
+  test("when an author deletes a thread, returns an empty successful response", async () => {
+    // Arrange
+    const route = request(app).delete("/api/threads/1").set("x-user-id", "alice")
+
+    // Act
+    const response = await route
+
+    // Assert
+    expect(response.status).toBe(204)
+    expect(response.text).toBe("")
+  })
+
   test("when an author deletes a thread, removes its comments through the model relationship", async () => {
     // Arrange
     const route = request(app).delete("/api/threads/1").set("x-user-id", "alice")
 
     // Act
-    await route.expect(204)
+    await route
 
     // Assert
     const comments = await Comment.findAll({ where: { threadId: 1 } })
