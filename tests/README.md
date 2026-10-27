@@ -6,6 +6,8 @@ Test files live under `tests/` and mirror `src/`; use `{filename}.test.ts`. Keep
 
 For shared test-authoring and review doctrine, see [MSSRT issue #725](https://github.com/klondikemarlen/marlens-skills-rules-and-tools/issues/725). This short guide records this package's actual runner and lifecycle rather than reproducing that full manual.
 
+Path aliases use `compilerOptions.paths` targets relative to the configuration file that declares them. The test, example, and tooling fixture configurations do not need the deprecated `baseUrl` option or an `ignoreDeprecations` suppression. Preserve those relative targets when overriding aliases in an extending configuration.
+
 ## Commands
 
 ```sh
