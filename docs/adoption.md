@@ -99,6 +99,8 @@ behavior. Transaction boundaries remain host-owned.
 
 ## Executable example
 
+For a guided introduction to running the app and following its request flow, start with the [example application walkthrough](../example-app/README.md).
+
 [`example-app/`](https://github.com/klondikemarlen/express-light-rail/tree/main/example-app) is a small in-memory Express app, not a fake database adapter. It shows normal `Router` composition, demo current-user middleware, a host `ApplicationController` identity getter, resource controllers, host policy, mutation service, explicit serializer, safe error middleware and policy/client-filter intersection. Run from a repository checkout after installing peer/dev dependencies and building the package:
 
 ```sh
