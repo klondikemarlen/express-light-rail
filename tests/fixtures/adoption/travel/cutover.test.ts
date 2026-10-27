@@ -1,6 +1,6 @@
 import {
-  API,
   BaseApiError,
+  BaseController,
   BaseService,
   createApiErrorHandler,
   createApiNotFoundHandler,
@@ -28,13 +28,21 @@ class HostRecordPolicy {
 }
 
 // Replaces the application's copied controller base: Express routing, auth, and policy remain host-owned.
-class RecordsController extends API<Model, AuthenticatedRequest> {
+abstract class ApplicationController<TModel extends Model = never> extends BaseController<
+  TModel,
+  AuthenticatedRequest
+> {
+  protected get currentUser(): User {
+    return this.request.currentUser
+  }
+}
+
+class RecordsController extends ApplicationController<Model> {
   async show(): Promise<void> {
     if (this.params.id === "explode") throw new Error("Secret failure")
 
-    const record = records.find(({ id }) => id === this.params.id)
-    if (!record) throw new BaseApiError("not_found", "Record not found", {}, 404)
-    if (!new HostRecordPolicy(this.request.currentUser, record).show()) {
+    const record = await AsyncLookupService.perform(this.params.id, this.signal)
+    if (!new HostRecordPolicy(this.currentUser, record).show()) {
       throw new BaseApiError("forbidden", "Record access denied", {}, 403)
     }
     this.response.json({ record })
@@ -44,22 +52,31 @@ class RecordsController extends API<Model, AuthenticatedRequest> {
 class AsyncLookupService extends BaseService<Promise<RecordRow>> {
   constructor(
     private readonly recordId: string,
+    private readonly signal: AbortSignal,
     private readonly includeArchived = false
   ) {
     super()
   }
 
   async perform(): Promise<RecordRow> {
+    if (this.signal.aborted) throw new DOMException("Aborted", "AbortError")
     if (this.includeArchived) throw new Error("Not found")
     const record = records.find(({ id }) => id === this.recordId)
-    if (!record) throw new Error("Not found")
+    if (!record) throw new BaseApiError("not_found", "Record not found", {}, 404)
     return record
   }
 }
 
 export function assertServiceContracts(): void {
-  const asyncResult: Promise<RecordRow> = AsyncLookupService.perform("1")
-  const optionalResult: Promise<RecordRow> = AsyncLookupService.perform("1", false)
+  const asyncResult: Promise<RecordRow> = AsyncLookupService.perform(
+    "1",
+    new AbortController().signal
+  )
+  const optionalResult: Promise<RecordRow> = AsyncLookupService.perform(
+    "1",
+    new AbortController().signal,
+    false
+  )
   void asyncResult
   void optionalResult
 }
@@ -79,7 +96,7 @@ function appFor(user: User) {
 }
 
 describe("Travel-shaped controller cutover", () => {
-  test("when the current user is allowed, the route returns its record", async () => {
+  test("when no host signal wrapper is installed, the inherited signal reaches the service", async () => {
     // Arrange
     const app = appFor({ id: "alice", canRead: true })
 
@@ -105,6 +122,24 @@ describe("Travel-shaped controller cutover", () => {
     })
   })
 
+  test("when the requested record is missing, the route preserves its not-found response", async () => {
+    // Arrange
+    const app = appFor({ id: "alice", canRead: true })
+
+    // Act
+    const response = await request(app).get("/api/records/missing")
+
+    // Assert
+    expect(response.status).toBe(404)
+    expect(response.body).toEqual({
+      error: {
+        code: "not_found",
+        msg: "Record not found",
+        meta: {},
+      },
+    })
+  })
+
   test("when an action throws unexpectedly, the error middleware hides its message", async () => {
     // Arrange
     const app = appFor({ id: "alice", canRead: true })
@@ -124,7 +159,7 @@ describe("Travel-shaped controller cutover", () => {
     const service = AsyncLookupService
 
     // Act
-    const result = await service.perform("1", false)
+    const result = await service.perform("1", new AbortController().signal, false)
 
     // Assert
     expect(result).toEqual({ id: "1", ownerId: "alice", name: "Example" })

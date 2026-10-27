@@ -129,24 +129,16 @@ describe("BaseController", () => {
         // Arrange
         class OrderedController extends BaseController {
           async index() {
-            return this.response.json(
-              this.buildOrder(
-                [["name", "ASC"]],
-                [["id", "ASC"]]
-              )
-            )
+            return this.response.json(this.buildOrder([["name", "ASC"]], [["id", "ASC"]]))
           }
         }
 
         app.get("/ordered", OrderedController.index)
 
         // Act
-        const response = await request(app).get("/ordered").query({
-          order: [
-            ["name", "DESC"],
-            ["id", "DESC"],
-          ],
-        })
+        const response = await request(app)
+          .get("/ordered")
+          .query("order[0][0]=name&order[0][1]=DESC&order[1][0]=id&order[1][1]=DESC")
 
         // Assert
         expect(response.body).toEqual([

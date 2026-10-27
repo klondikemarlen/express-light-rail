@@ -13,12 +13,13 @@ import { type BaseScopeOptions } from "@/base-policy/index.js"
 import { BaseApiError } from "@/base-controller/base-api-error.js"
 import { requestAbortSignal } from "@/base-controller/request-abort-signal.js"
 
-
 export type Actions = "index" | "show" | "new" | "edit" | "create" | "update" | "destroy"
 
-
 // See https://guides.rubyonrails.org/routing.html#crud-verbs-and-actions
-export class BaseController<TModel extends Model = never, ControllerRequest extends Request = Request> {
+export class BaseController<
+  TModel extends Model = never,
+  ControllerRequest extends Request = Request,
+> {
   protected request: ControllerRequest & { signal: AbortSignal }
   protected response: Response
   protected next: NextFunction
@@ -134,11 +135,7 @@ export class BaseController<TModel extends Model = never, ControllerRequest exte
     overridableOptions: WhereOptions<Attributes<TModelOverride>> = {},
     nonOverridableOptions: WhereOptions<Attributes<TModelOverride>> = {}
   ): WhereOptions<Attributes<TModelOverride>> {
-    return buildWhere<TModelOverride>(
-      this.query.where,
-      overridableOptions,
-      nonOverridableOptions
-    )
+    return buildWhere<TModelOverride>(this.query.where, overridableOptions, nonOverridableOptions)
   }
 
   buildFilterScopes<FilterOptions extends Record<string, unknown>>(
@@ -153,6 +150,4 @@ export class BaseController<TModel extends Model = never, ControllerRequest exte
   ): ModelOrder[] | undefined {
     return buildOrder(this.query.order, overridableOrder, nonOverridableOrder)
   }
-
 }
-
