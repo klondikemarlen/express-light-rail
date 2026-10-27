@@ -14,14 +14,16 @@ Keep a host-owned packet catalog shared between the server and client. Its keys 
 
 ```ts
 export type ApplicationPackets = {
-  "tasks.updated": { id: string; title: string }
-  "notifications.created": { id: string; body: string }
+  "tasks:updated": { id: string; title: string }
+  "notifications:created": { id: string; body: string }
 }
 ```
 
-`ChannelPacket<ApplicationPackets>` is a discriminated union: a `tasks.updated` packet requires the task payload, while a `notifications.created` packet requires the notification payload. Both travel through the same Socket.IO `packet` event as one `{ type, payload }` argument. Event labels are host-owned strings, not a package-owned model registry.
+`ChannelPacket<ApplicationPackets>` is a discriminated union: a `tasks:updated` packet requires the task payload, while a `notifications:created` packet requires the notification payload. Both travel through the same Socket.IO `packet` event as one `{ type, payload }` argument. Labels are host-owned strings: these examples use colons, but the package does not validate or rewrite label punctuation.
 
-The following server example uses ordinary records to make ownership visible. The authenticated user does not automatically have access to every resource; each event is authorized before serialization and delivery.
+Rails Action Cable is an organizational analogy, not this package's transport or subscription protocol. The [Rails Action Cable guide](https://guides.rubyonrails.org/action_cable_overview.html#server-side-components) describes connection authentication in `ApplicationCable::Connection`, shared channel behavior in the parent `ApplicationCable::Channel`, and concrete channels that own subscriptions. Here `ChannelManager.authenticate` authenticates the Socket.IO connection; a host `ApplicationChannel` holds shared connection-level helpers; and a concrete `UpdatesChannel` owns its process-local event subscriptions. Unlike Action Cable consumers, a socket in this example receives multiple resource kinds through one `/updates` namespace and one channel instance. The Rails guide does not prescribe event-label punctuation.
+
+The following server example uses ordinary records to make ownership visible. The host retains resource policies and DTO serialization; the identity checks shown here are only a small demonstration of per-event authorization.
 
 ```ts
 import { createServer } from "node:http"
@@ -30,15 +32,15 @@ import { BaseChannel, ChannelManager, PubSub } from "express-light-rail/channels
 
 // Share this catalog with the frontend through the host's own contracts module.
 type ApplicationPackets = {
-  "tasks.updated": { id: string; title: string }
-  "notifications.created": { id: string; body: string }
+  "tasks:updated": { id: string; title: string }
+  "notifications:created": { id: string; body: string }
 }
 type User = { id: string }
 type Task = { id: string; title: string; ownerId: string }
 type Notification = { id: string; body: string; recipientId: string }
 type DomainEvents = {
-  "tasks.updated": [task: Task]
-  "notifications.created": [notification: Notification]
+  "tasks:updated": [task: Task]
+  "notifications:created": [notification: Notification]
 }
 
 const updates = new PubSub<DomainEvents>()
@@ -48,37 +50,43 @@ const users = new Map<string, User>([
 ])
 
 class ApplicationChannel extends BaseChannel<User, ApplicationPackets> {
+  protected isCurrentUser(userId: string): boolean {
+    return this.currentUser.id === userId
+  }
+}
+
+class UpdatesChannel extends ApplicationChannel {
   subscribed(): void {
-    updates.subscribe("tasks.updated", this.taskUpdated, this.invalidate)
-    updates.subscribe("notifications.created", this.notificationCreated, this.invalidate)
+    updates.subscribe("tasks:updated", this.taskUpdated, this.invalidate)
+    updates.subscribe("notifications:created", this.notificationCreated, this.invalidate)
     super.subscribed()
   }
 
   unsubscribed(): void {
-    updates.unsubscribe("tasks.updated", this.taskUpdated)
-    updates.unsubscribe("notifications.created", this.notificationCreated)
+    updates.unsubscribe("tasks:updated", this.taskUpdated)
+    updates.unsubscribe("notifications:created", this.notificationCreated)
     super.unsubscribed()
   }
 
   private readonly taskUpdated = (task: Task): void => {
-    if (task.ownerId !== this.currentUser.id) return
+    if (!this.isCurrentUser(task.ownerId)) return
 
     const payload = { id: task.id, title: task.title }
-    this.broadcast({ type: "tasks.updated", payload })
+    this.broadcast("tasks:updated", payload)
   }
 
   private readonly notificationCreated = (notification: Notification): void => {
-    if (notification.recipientId !== this.currentUser.id) return
+    if (!this.isCurrentUser(notification.recipientId)) return
 
     const payload = { id: notification.id, body: notification.body }
-    this.broadcast({ type: "notifications.created", payload })
+    this.broadcast("notifications:created", payload)
   }
 }
 
 const application = express()
 const server = createServer(application)
 const channels = new ChannelManager(server, {
-  channels: { "/updates": ApplicationChannel },
+  channels: { "/updates": UpdatesChannel },
   authenticate(socket) {
     // Demonstration lookup only: production hosts verify their own credentials.
     const identifier: unknown = socket.handshake.auth.userId
@@ -93,7 +101,7 @@ const channels = new ChannelManager(server, {
 server.listen(3000)
 ```
 
-Production hosts should call their existing resource policies and serializers in place of the example ownership comparisons and object projections. Multiple resource handlers belong in this application channel when they share the connection context. Separate namespaces remain available for genuinely separate connection requirements; they are not needed merely because two events concern different models.
+`ApplicationChannel` contains only connection-wide shared behavior; resource event subscriptions stay in the concrete `UpdatesChannel`. In production, replace the simple identity comparisons with the host's resource policies and keep the host's serializers responsible for packet DTOs. A resource model does not need its own channel class or namespace. Separate namespaces remain available for genuinely separate connection requirements.
 
 The manager attaches a native Socket.IO server but never calls `listen()`. Authentication is required before channel construction, and its returned user becomes that channel's typed `currentUser`. Rejected or nullish authentication does not start a channel. Clients receive a generic authentication error; the original error is available through the server logger and optional `onError(error, socket)` hook. Authentication and packet labels are not resource authorization.
 
@@ -114,10 +122,10 @@ const socket: Socket<ChannelServerEvents<ApplicationPackets>> = io(
 
 socket.on("packet", (packet) => {
   switch (packet.type) {
-    case "tasks.updated":
+    case "tasks:updated":
       updateTask(packet.payload)
       break
-    case "notifications.created":
+    case "notifications:created":
       addNotification(packet.payload)
       break
   }
@@ -130,24 +138,24 @@ Native lifecycle controls remain separate, payload-free events: `subscribed`, `u
 
 ## Delivery and subscription ownership
 
-`broadcast(packet)` sends only to that channel's connected socket, not the namespace, another user, or a global room. The bound `invalidate` callback also emits only while connected. `channels.server` exposes the native Socket.IO server for host composition; broader broadcast/room APIs require the host's own targeting and authorization rules.
+`broadcast(label, payload)` constructs and sends `{ type: label, payload }` through the `packet` event only to that channel's connected socket, not the namespace, another user, or a global room. The bound `invalidate` callback also emits only while connected. `channels.server` exposes the native Socket.IO server for host composition; broader broadcast/room APIs require the host's own targeting and authorization rules.
 
 Create process-local buses in the host and retain original listener identities for teardown. `PubSub` keeps its tuple-based `publish(event, ...payload)` API for internal domain events; it does not impose the wire packet's DTO shape on host records. Publishing dispatches synchronously and does not await asynchronous listeners or promise ordered asynchronous completion, persistence, or cross-process delivery.
 
 `subscribe(event, listener, onError?)` returns an `AbortSignal` for that registration. `unsubscribe(event, listener)` removes the newest matching registration, aborts its signal synchronously, and leaves earlier duplicate registrations intact. Removing an absent registration is harmless. Cancellation suppresses future dispatch and pending error recovery. Listener throws, rejected listener promises, and recovery-hook failures are contained and logged; one failing listener does not prevent other listeners from receiving an event.
 
-Already-running JavaScript and domain I/O cannot be forcibly cancelled. Pass the returned signal into cancellable I/O, or check it after an `await` before broadcasting. Recheck host policy against freshly loaded state too. For example, an asynchronous task handler in the application channel can retain its subscription signal:
+Already-running JavaScript and domain I/O cannot be forcibly cancelled. Pass the returned signal into cancellable I/O, or check it after an `await` before broadcasting. Recheck host policy against freshly loaded state too. For example, an asynchronous task handler in the concrete channel can retain its subscription signal:
 
 ```ts
 private subscription?: AbortSignal
 
 subscribed(): void {
-  this.subscription = updates.subscribe("tasks.updated", this.taskUpdated, this.invalidate)
+  this.subscription = updates.subscribe("tasks:updated", this.taskUpdated, this.invalidate)
   super.subscribed()
 }
 
 unsubscribed(): void {
-  updates.unsubscribe("tasks.updated", this.taskUpdated)
+  updates.unsubscribe("tasks:updated", this.taskUpdated)
   super.unsubscribed()
 }
 
@@ -156,7 +164,7 @@ private readonly taskUpdated = async (task: Task): Promise<void> => {
   if (this.subscription?.aborted || !visible) return
 
   const payload = { id: task.id, title: task.title }
-  this.broadcast({ type: "tasks.updated", payload })
+  this.broadcast("tasks:updated", payload)
 }
 ```
 
@@ -178,14 +186,23 @@ await channels.close()
 
 ## Upgrade from the raw-event API
 
-The packet API changes the application-data contract from version 0.7.0:
+The packet API changes the application-data wire contract, but producer migration depends on the version being adopted:
 
-- Supply the host catalog as the second generic: `BaseChannel<User, ApplicationPackets>`.
-- Replace `broadcast("tasks.updated", task)` with `broadcast({ type: "tasks.updated", payload })`, authorizing and serializing the payload first.
-- Replace resource-specific client socket listeners with `socket.on("packet", ...)` and dispatch by `packet.type`.
-- Map the single application class to `/updates` or the host's selected namespace. Audit HTTP path, namespace, origin/CORS, handshake credentials, native lifecycle signals and recovery settings separately.
+- With 0.7 two-argument producers, keep the call shape `broadcast(label, payload)`. Supply the host catalog as the second generic (`BaseChannel<User, ApplicationPackets>`), and align the labels and serialized payloads with that catalog. Change clients from resource-specific Socket.IO event listeners to `socket.on("packet", ...)`, dispatching on `packet.type`.
+- With 0.8 object-form producers, replace `broadcast({ type: label, payload })` with `broadcast(label, payload)`. The receive-side wire is already `packet` carrying `{ type, payload }`, so clients do not change solely for this producer API change.
+- In either case, map the application class to `/updates` or the host's selected namespace. Audit HTTP path, namespace, origin/CORS, handshake credentials, native lifecycle signals and recovery settings separately.
 
-There is no dual emission or raw-string overload. Coordinate server/client deployment and rollback; a version bump does not migrate a host automatically. Existing clients, including WRAP-specific clients, require an explicit wire-contract audit. Jobs and internal `PubSub` tuples do not change.
+For WRAP, the [inspected source revision](https://github.com/icefoganalytics/wrap/tree/4e170b491a72ba011c045f073021cd8475748585/api/src/channels) distinguishes internal bus events from raw socket event names. Map those explicitly to host packet labels:
+
+| Internal event              | Old raw socket event | Example host packet label    |
+| --------------------------- | -------------------- | ---------------------------- |
+| `notifications:create`      | `created`            | `notifications:created`      |
+| `notifications:update`      | `updated`            | `notifications:updated`      |
+| `notifications:bulk_update` | `bulk_updated`       | `notifications:bulk_updated` |
+
+The packet labels are host choices: retain or rename them deliberately in the host catalog, preserving each event's host-owned DTO and policy. The package does not translate WRAP events or labels.
+
+The two-argument producer sends only the `packet` event; it does not also emit an event named after the label. Coordinate any server/client wire cutover and rollback; changing a package version does not migrate a host automatically. Jobs and internal `PubSub` tuples do not change.
 
 ## Runnable example and consumer verification
 
