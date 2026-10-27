@@ -136,7 +136,13 @@ describe("discussion board", () => {
 
     // Assert
     expect(response.status).toBe(403)
-    expect(response.body.error.code).toBe("forbidden")
+    expect(response.body).toEqual({
+      error: {
+        code: "forbidden",
+        msg: "Forbidden",
+        meta: {},
+      },
+    })
   })
 
   test("when required thread text is blank, rejects the input", async () => {
@@ -154,7 +160,13 @@ describe("discussion board", () => {
 
     // Assert
     expect(response.status).toBe(400)
-    expect(response.body.error.code).toBe("invalid_input")
+    expect(response.body).toEqual({
+      error: {
+        code: "invalid_input",
+        msg: "title is required",
+        meta: {},
+      },
+    })
   })
 
   test("when a thread does not exist, returns a public not-found error", async () => {
@@ -169,7 +181,13 @@ describe("discussion board", () => {
 
     // Assert
     expect(response.status).toBe(404)
-    expect(response.body.error.code).toBe("not_found")
+    expect(response.body).toEqual({
+      error: {
+        code: "not_found",
+        msg: "Thread not found",
+        meta: {},
+      },
+    })
   })
 
   test("when a user creates a comment, assigns the current user and URL parent", async () => {
@@ -226,7 +244,13 @@ describe("discussion board", () => {
 
     // Assert
     expect(response.status).toBe(403)
-    expect(response.body.error.code).toBe("forbidden")
+    expect(response.body).toEqual({
+      error: {
+        code: "forbidden",
+        msg: "Forbidden",
+        meta: {},
+      },
+    })
   })
 
   test("when a comment is requested under another existing thread, returns not found", async () => {
@@ -245,7 +269,13 @@ describe("discussion board", () => {
 
     // Assert
     expect(response.status).toBe(404)
-    expect(response.body.error.code).toBe("not_found")
+    expect(response.body).toEqual({
+      error: {
+        code: "not_found",
+        msg: "Comment not found",
+        meta: {},
+      },
+    })
   })
 
   test("when an author deletes a thread, returns an empty successful response", async () => {
@@ -300,7 +330,13 @@ describe("discussion board", () => {
 
     // Assert
     expect(response.status).toBe(401)
-    expect(response.body.error.code).toBe("unauthorized")
+    expect(response.body).toEqual({
+      error: {
+        code: "unauthorized",
+        msg: "Authentication required",
+        meta: {},
+      },
+    })
   })
 
   test("when a JSON array is submitted as thread attributes, rejects it as invalid input", async () => {
@@ -315,7 +351,13 @@ describe("discussion board", () => {
 
     // Assert
     expect(response.status).toBe(400)
-    expect(response.body.error.code).toBe("invalid_input")
+    expect(response.body).toEqual({
+      error: {
+        code: "invalid_input",
+        msg: "Expected a JSON object",
+        meta: {},
+      },
+    })
   })
 
   test("when JSON cannot be parsed, preserves the client error status", async () => {
@@ -350,6 +392,12 @@ describe("discussion board", () => {
 
     // Assert
     expect(response.status).toBe(413)
-    expect(response.body.error.code).toBe("invalid_request")
+    expect(response.body).toEqual({
+      error: {
+        code: "invalid_request",
+        msg: "Invalid request",
+        meta: {},
+      },
+    })
   })
 })
