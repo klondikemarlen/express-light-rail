@@ -1,145 +1,175 @@
-# Example application
+# Discussion board example
 
-Run a small Express application and follow a task from its route through authorization, a service, and a serializer. The example uses the package's `BaseController`, `BaseService`, `BaseSerializer`, and API error handlers. Its task data lives in memory, so you can explore the request flow without setting up a database.
+Build a small Rails-style API with Express Light Rail: users start discussion threads, add comments, and edit or delete their own posts. The example uses real Sequelize models and a local SQLite database. It demonstrates the controller, policy, service, model, and serializer conventions together without requiring a separate database server.
 
 ## Run the app
 
-Clone this repository, then run these commands from the repository root, not from `example-app/`:
+From a checkout of this repository, run these commands at the repository root, not inside `example-app/`:
 
 ```sh
-git clone https://github.com/klondikemarlen/express-light-rail.git
-cd express-light-rail
 npm install
 npm run build
 npm run example
 ```
 
-Use the Node.js version in the repository's [`.tool-versions`](../.tool-versions); with asdf installed, `asdf install nodejs` installs that version. Building first makes the local package available to the example's `express-light-rail` imports.
+Use the Node.js version in [`.tool-versions`](../.tool-versions); `asdf install nodejs` installs it when using asdf. Build the package before starting the example so its `express-light-rail` imports resolve to the local build.
 
-The server listens at `http://localhost:3000`. To choose another port, run `API_PORT=3352 npm run example` and adjust the URLs below. Stop with Ctrl-C. The command compiles TypeScript before starting the server; restart it after changing application code. Each restart resets the task data.
+The API listens at `http://localhost:3000`. To use another port, run `API_PORT=3352 npm run example` and adjust the request URLs below. The command compiles before starting; stop with Ctrl-C and restart after code changes.
 
-No database, Redis server, environment file, or external account is needed. The `x-user-id` header selects a demo user; it is not production authentication.
-
-## Try a request
-
-In a second terminal, list Alice's open tasks:
+SQLite stores data in `.example-app/discussion-board.sqlite`, which is ignored by Git. Startup creates the schema and seeds a fresh database with Alice, Bob, one welcome thread, and Bob's comment. Restarting does not reset existing records. To explore a separate empty database, choose a new path:
 
 ```sh
-curl -i -H 'x-user-id: alice' 'http://localhost:3000/api/tasks?status=open'
+EXAMPLE_DATABASE_STORAGE=/tmp/my-discussion-board.sqlite npm run example
 ```
 
-The response is HTTP 200 with this body on a fresh server:
+No Redis, external account, environment file, or database container is required. Schema synchronization is convenient for this local example; production applications should own migrations, backups, configuration, and deployment.
 
-```json
-{
-  "tasks": [{ "id": 1, "title": "Review access", "status": "open", "visibility": "private" }]
-}
+## Meet the users and models
+
+| Model   | Fields                               | Relationship                         |
+| ------- | ------------------------------------ | ------------------------------------ |
+| User    | `id`, `username`, `name`             | Authors threads and comments.        |
+| Thread  | `id`, `title`, `body`, `authorId`    | Belongs to an author; has comments.  |
+| Comment | `id`, `body`, `threadId`, `authorId` | Belongs to one thread and an author. |
+
+The `x-user-id` header selects the seeded username `alice` or `bob`. This is deliberately simple **demo identity selection**, not secure authentication. A real application establishes the current user through its authentication middleware instead.
+
+Both users can read discussions and create posts. Only a post's author can update or delete it. Owning a thread does not grant permission to edit somebody else's comments. Deleting a thread also deletes its comments through the database relationship. User endpoints are read-only; account administration is outside this example.
+
+In a second terminal:
+
+```sh
+curl -i -H 'x-user-id: alice' http://localhost:3000/api/users
+curl -i -H 'x-user-id: alice' http://localhost:3000/api/users/1
+curl -i -H 'x-user-id: alice' http://localhost:3000/api/threads
+curl -i -H 'x-user-id: alice' http://localhost:3000/api/threads/1
+curl -i -H 'x-user-id: alice' http://localhost:3000/api/threads/1/comments
 ```
 
-Alice can see public tasks and her own private tasks. The `status=open` filter narrows that visible set; it never grants access to Bob's private tasks. The serializer omits `ownerId` from responses.
+Expect HTTP 200. The fresh database contains thread 1, titled `Welcome to the board`, authored by Alice (user 1). Comment 1 belongs to Bob (user 2). Responses use explicit envelopes: `users`, `threads`, or `comments` for lists; `user`, `thread`, or `comment` for a single record. List endpoints use the inherited pagination helper; for example, `GET /api/threads?page=1&perPage=5`.
 
-Now create a task as Alice:
+## Create a thread and comment
+
+Start a discussion as Alice:
 
 ```sh
 curl -i -H 'x-user-id: alice' -H 'content-type: application/json' \
-  -d '{"title":"Plan the next release","status":"open","visibility":"private"}' \
-  http://localhost:3000/api/tasks
+  -d '{"title":"What are you building?","body":"Share your current project."}' \
+  http://localhost:3000/api/threads
 ```
 
-Expect HTTP 201 and a `task` object with the submitted fields and a generated `id` (4 on a fresh server). The service sets ownership from the authenticated actor, not from request input. Repeat the list request to see the new task.
+Expect HTTP 201 with a `thread` object containing the submitted text, a generated `id`, and `authorId: 1`. On a fresh database its ID is 2; use the returned ID instead of 2 below if your database already contains other posts.
 
-Bob can list tasks but cannot create them:
+Reply as Bob:
 
 ```sh
 curl -i -H 'x-user-id: bob' -H 'content-type: application/json' \
-  -d '{"title":"Not allowed"}' http://localhost:3000/api/tasks
+  -d '{"body":"I am building an Express app."}' \
+  http://localhost:3000/api/threads/2/comments
 ```
 
-Expect HTTP 403:
+Expect HTTP 201 with a `comment` object containing `threadId: 2` and `authorId: 2`. Its ID is 2 on a fresh database. The author always comes from the current user, and the comment's thread comes from the URL. Client-supplied `id`, `authorId`, or `threadId` fields cannot replace those values.
 
-```json
-{ "error": { "code": "forbidden", "msg": "You cannot create tasks", "meta": {} } }
+## Read and update posts
+
+Read the new records:
+
+```sh
+curl -i -H 'x-user-id: alice' http://localhost:3000/api/threads/2
+curl -i -H 'x-user-id: alice' http://localhost:3000/api/threads/2/comments/2
 ```
 
-## Follow the code
+Alice can change the thread title without replacing its body:
 
-| File                                               | Responsibility                                                                                                   |
-| -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| [`server.ts`](server.ts)                           | Start the HTTP listener.                                                                                         |
-| [`app.ts`](app.ts)                                 | Compose JSON parsing, the API router, API-not-found handling, and error handling.                                |
-| [`router.ts`](router.ts)                           | Establish the demo user, define the application controller and task actions, and connect them to Express routes. |
-| [`tasks-policy.ts`](tasks-policy.ts)               | Decide task visibility and creation permission; select and validate creation attributes.                         |
-| [`create-task-service.ts`](create-task-service.ts) | Create a task with server-assigned identity and ownership.                                                       |
-| [`task-serializer.ts`](task-serializer.ts)         | Select the fields returned to clients.                                                                           |
-| [`domain.ts`](domain.ts)                           | Define the user/task types and initial in-memory records.                                                        |
-
-### Inherit framework behavior
-
-The host's `ApplicationController` extends the package's `BaseController`. `TasksController` extends that application base. The only shared application-specific accessor here is the user:
-
-```ts
-abstract class ApplicationController extends BaseController<never, AuthenticatedRequest> {
-  protected get currentUser(): User {
-    return this.request.currentUser
-  }
-}
+```sh
+curl -i -X PATCH -H 'x-user-id: alice' -H 'content-type: application/json' \
+  -d '{"title":"Show your project"}' http://localhost:3000/api/threads/2
 ```
 
-The package supplies Express action dispatch and request cancellation. Actions inherit `this.signal` and `this.request.signal` without copying signal setup into the application base. Cancellation is cooperative: services must use a passed signal to stop work; the framework does not automatically cancel their operations.
+Bob can update his comment:
 
-Query helpers such as `this.buildWhere()`, `this.buildFilterScopes()`, `this.buildOrder()`, and `this.pagination` are also inherited. This in-memory example filters arrays directly rather than constructing Sequelize queries. See the [controller guide](../src/base-controller/README.md) when adding model-backed actions. Standalone helper imports remain available for code outside controllers.
-
-### Keep actions focused on orchestration
-
-The create action checks permission before selecting input, then calls the service and serializer:
-
-```ts
-const attributes = policy.permitCreate(this.request.body)
-const task = CreateTaskService.perform(user, attributes)
-const serializedTask = TaskSerializer.perform(task)
-this.response.status(201).json({ task: serializedTask })
+```sh
+curl -i -X PATCH -H 'x-user-id: bob' -H 'content-type: application/json' \
+  -d '{"body":"I am using Rails-style controllers with Express."}' \
+  http://localhost:3000/api/threads/2/comments/2
 ```
 
-The surrounding action in [`router.ts`](router.ts) obtains `user` and `policy` and rejects callers whose policy denies creation. `CreateTaskService` extends `BaseService<Task>`; `TaskSerializer` extends `BaseSerializer<Task, TaskJson>`. Their callers use `.perform(...)` instead of constructing these objects themselves.
+Both PATCH requests return HTTP 200 with the updated record. Omitted fields remain unchanged. Restart the app and repeat the GET requests: your records and edits remain in SQLite.
 
-The current `TasksPolicy` is a host-owned, in-memory policy, not a subclass of the package's Sequelize-backed `BasePolicy`. It accepts a non-empty title, normalizes status and visibility, and excludes fields such as `ownerId`. For model-backed policies, the [policy guide](../src/base-policy/README.md) describes inherited permitted-attribute filtering: concrete policies declare an allow-list, while `BasePolicy` calls `deepPick` internally. Ordinary controllers do not need to import `deepPick`.
+## Try the authorization boundary
 
-### Leave routing and errors Express-native
+Alice owns the thread but not Bob's comment. This request returns HTTP 403 with `error.code` equal to `forbidden`:
 
-The router binds resource actions directly:
-
-```ts
-router.get("/tasks", TasksController.index)
-router.post("/tasks", TasksController.create)
+```sh
+curl -i -X PATCH -H 'x-user-id: alice' -H 'content-type: application/json' \
+  -d '{"body":"Replace somebody else\u0027s comment"}' \
+  http://localhost:3000/api/threads/2/comments/2
 ```
 
-[`app.ts`](app.ts) mounts this router at `/api`. Controller action failures pass to Express error middleware. Expected `BaseApiError` failures preserve their public status and structured body; unexpected failures return a generic error rather than exposing internal messages.
-
-## Explore error responses
-
-Run these against the same server:
+Other useful checks:
 
 ```sh
 # Missing demo identity: HTTP 401, error.code = "unauthorized".
-curl -i http://localhost:3000/api/tasks
+curl -i http://localhost:3000/api/threads
 
-# Missing required title: HTTP 400, error.code = "invalid_input".
+# Missing record: HTTP 404, error.code = "not_found".
+curl -i -H 'x-user-id: alice' http://localhost:3000/api/threads/999999
+
+# Comment 1 belongs to thread 1, not thread 2: HTTP 404.
+curl -i -H 'x-user-id: alice' http://localhost:3000/api/threads/2/comments/1
+
+# Blank required title: HTTP 400, error.code = "invalid_input".
 curl -i -H 'x-user-id: alice' -H 'content-type: application/json' \
-  -d '{}' http://localhost:3000/api/tasks
-
-# Deliberate action failure: HTTP 500, error.code = "internal_server_error".
-curl -i -H 'x-user-id: alice' 'http://localhost:3000/api/tasks?fail=true'
+  -d '{"title":" ","body":"A valid body"}' http://localhost:3000/api/threads
 ```
 
-The failure switch is a demonstration of error handling, not an application feature to carry into production.
+## Delete posts
+
+Bob can delete his comment; Alice can delete her thread:
+
+```sh
+curl -i -X DELETE -H 'x-user-id: bob' http://localhost:3000/api/threads/2/comments/2
+curl -i -X DELETE -H 'x-user-id: alice' http://localhost:3000/api/threads/2
+```
+
+Both return HTTP 204 with no body. A subsequent GET returns 404. If a thread still has comments when its author deletes it, SQLite removes those comments too.
+
+## Follow the application structure
+
+| Location                                              | Responsibility                                                                                |
+| ----------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| [`app.ts`](app.ts)                                    | Compose JSON parsing, API routing, not-found handling, and error handling in separate groups. |
+| [`server.ts`](server.ts)                              | Initialize and seed the database, then start HTTP.                                            |
+| [`database.ts`](database.ts) and [`models/`](models/) | Configure SQLite and define real Sequelize models and relationships.                          |
+| [`seed.ts`](seed.ts)                                  | Seed only a fresh database; preserve existing data on restart.                                |
+| [`router.ts`](router.ts)                              | Resolve the demo current user and bind Express-native resource routes.                        |
+| [`controllers/`](controllers/)                        | Orchestrate reads, authorization, services, serialization, and HTTP responses.                |
+| [`policies/`](policies/)                              | Own author permissions and attribute allow-lists.                                             |
+| [`services/`](services/)                              | Own thread/comment mutations and their validated inputs.                                      |
+| [`serializers/`](serializers/)                        | Select explicit response fields instead of returning raw model objects.                       |
+
+### Inherit the framework; configure the application once
+
+The inheritance paths are `BaseController → ApplicationController → ThreadsController` and `BasePolicy → ApplicationPolicy → ThreadPolicy`, with equivalent concrete classes for comments.
+
+`ApplicationController` exposes the project's `currentUser`. Request cancellation and query helpers already come from the package: actions inherit `this.signal`, `this.request.signal`, and `this.pagination`. There is no copied signal setup in each controller. Cancellation remains cooperative; it does not automatically cancel SQL or transactions.
+
+`ApplicationPolicy` holds common authorization behavior. Concrete policies select allowed fields and determine author permissions. Controllers use inherited `permitAttributesForCreate` and `permitAttributesForUpdate`; `BasePolicy` handles `deepPick` internally. Neither controllers nor application policies need to import that utility.
+
+### Keep request flow visible
+
+Routes stay normal Express resource declarations. Controllers perform ordinary model reads directly, authorize mutations, pass policy-selected attributes to services, and serialize the result. Services extend `BaseService` and use `.perform(...)`; serializers extend `BaseSerializer` and use the same call style. Model validation rejects missing or blank required text, while the API error handler translates validation failures into safe HTTP 400 responses.
+
+The list queries use fixed ordering and bounded pagination, not unrestricted client-supplied Sequelize conditions. Error handling stays Express-native: public `BaseApiError` failures preserve their status and body, while unexpected errors return a generic 500 without internal details.
 
 ## Check your changes
 
-From the repository root, run the existing application behavior tests and package type checks:
+From the repository root:
 
 ```sh
 npm run test -- --run tests/example-app/app.test.ts
 npm run check-types
+npm run lint
 ```
 
-The app is a runnable guide, not a production deployment template. Authentication and persistence remain application responsibilities. Jobs and channels are separate opt-in mechanisms; see the [jobs guide](../docs/jobs.md) and [channels guide](../docs/channels.md). For replacing an existing application's bases rather than starting with this example, use the [incremental adoption guide](../docs/adoption.md).
+The application tests use an isolated in-memory SQLite database, not the example's persistent file. For the framework's individual conventions, see the [controller](../src/base-controller/README.md), [policy](../src/base-policy/README.md), [service](../src/base-service/README.md), and [serializer](../src/base-serializer/README.md) guides. Jobs and channels are separate examples in the [jobs](../docs/jobs.md) and [channels](../docs/channels.md) guides. Existing applications should follow the [incremental adoption guide](../docs/adoption.md) rather than replacing their persistence or authentication with this demo.
