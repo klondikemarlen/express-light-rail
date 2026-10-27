@@ -3,6 +3,7 @@
   "compilerOptions": {
     "rootDir": "./../",
     "baseUrl": "./../",
+    "lib": ["ES2024", "DOM"],
     "paths": {
       "@/*": ["./src/*"],
       "@tests/*": ["./tests/*"],
