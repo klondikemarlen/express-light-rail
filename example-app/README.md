@@ -145,7 +145,7 @@ Both return HTTP 204 with no body. A subsequent GET returns 404. If a thread sti
 | [`router.ts`](router.ts)                              | Resolve the demo current user and bind Express-native resource routes.                        |
 | [`controllers/`](controllers/)                        | Orchestrate reads, authorization, services, serialization, and HTTP responses.                |
 | [`policies/`](policies/)                              | Own author permissions and attribute allow-lists.                                             |
-| [`services/`](services/)                              | Own thread/comment mutations and their validated inputs.                                      |
+| [`services/`](services/)                              | Own thread/comment creation and updates with their validated inputs.                          |
 | [`serializers/`](serializers/)                        | Select explicit response fields instead of returning raw model objects.                       |
 
 ### Inherit the framework; configure the application once
@@ -159,6 +159,8 @@ The inheritance paths are `BaseController → ApplicationController → ThreadsC
 ### Keep request flow visible
 
 Routes stay normal Express resource declarations. Controllers perform ordinary model reads directly, authorize mutations, pass policy-selected attributes to services, and serialize the result. Services extend `BaseService` and use `.perform(...)`; serializers extend `BaseSerializer` and use the same call style. Model validation rejects missing or blank required text, while the API error handler translates validation failures into safe HTTP 400 responses.
+
+Authorized delete actions call the model's `destroy()` method directly. The model relationship owns comment cascading; a separate service is unnecessary for that single operation.
 
 Mutation bodies must be JSON objects. Shared API middleware rejects arrays before policy filtering, so malformed attribute shapes return a client error rather than an internal failure.
 
