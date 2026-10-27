@@ -1,4 +1,4 @@
-export { API, type Actions } from "./api.js"
+export { BaseController, type Actions } from "./base-controller.js"
 export {
   BaseApiError,
   type BaseApiErrorBody,

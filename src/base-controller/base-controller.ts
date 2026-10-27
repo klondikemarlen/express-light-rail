@@ -11,29 +11,27 @@ import {
 
 import { type BaseScopeOptions } from "@/base-policy/index.js"
 import { BaseApiError } from "@/base-controller/base-api-error.js"
+import { requestAbortSignal } from "@/base-controller/request-abort-signal.js"
 
-export { BaseApiError }
 
 export type Actions = "index" | "show" | "new" | "edit" | "create" | "update" | "destroy"
 
 
 // See https://guides.rubyonrails.org/routing.html#crud-verbs-and-actions
-export class API<TModel extends Model = never, ControllerRequest extends Request = Request> {
-  protected request: ControllerRequest
+export class BaseController<TModel extends Model = never, ControllerRequest extends Request = Request> {
+  protected request: ControllerRequest & { signal: AbortSignal }
   protected response: Response
   protected next: NextFunction
 
   constructor(req: Request, res: Response, next: NextFunction) {
-    // Assumes authorization has occured first in
-    // api/src/middlewares/jwt-middleware.ts and api/src/middlewares/authorization-middleware.ts
-    // At some future point it would make sense to do all that logic as
-    // controller actions to avoid the need for hack
-    this.request = req as ControllerRequest
-    this.response = res as Response
+    requestAbortSignal(req, res)
+    // Authentication and project-specific request fields are established by the host.
+    this.request = req as ControllerRequest & { signal: AbortSignal }
+    this.response = res
     this.next = next
   }
 
-  static createActionHandler(action: Actions & keyof API) {
+  static createActionHandler(action: Actions & keyof BaseController) {
     return async (req: Request, res: Response, next: NextFunction) => {
       try {
         const controllerInstance = new this(req, res, next)
@@ -46,7 +44,7 @@ export class API<TModel extends Model = never, ControllerRequest extends Request
   }
 
   /**
-   * Maps route to API#index()
+   * Maps route to BaseController#index()
    *
    * @example
    * app.route("/api/users").get(UsersController.index)
@@ -56,7 +54,7 @@ export class API<TModel extends Model = never, ControllerRequest extends Request
   }
 
   /**
-   * Maps route to API#create()
+   * Maps route to BaseController#create()
    *
    * @example
    * app.route("/api/users").post(UsersController.create)
@@ -66,7 +64,7 @@ export class API<TModel extends Model = never, ControllerRequest extends Request
   }
 
   /**
-   * Maps route to API#show()
+   * Maps route to BaseController#show()
    *
    * @example
    * app.route("/api/users/:userId").get(UsersController.show)
@@ -76,7 +74,7 @@ export class API<TModel extends Model = never, ControllerRequest extends Request
   }
 
   /**
-   * Maps route to API#update()
+   * Maps route to BaseController#update()
    *
    * @example
    * app.route("/api/users/:userId").patch(UsersController.update)
@@ -86,7 +84,7 @@ export class API<TModel extends Model = never, ControllerRequest extends Request
   }
 
   /**
-   * Maps route to API#destroy()
+   * Maps route to BaseController#destroy()
    *
    * @example
    * app.route("/api/users/:userId").delete(UsersController.destroy)
@@ -116,6 +114,10 @@ export class API<TModel extends Model = never, ControllerRequest extends Request
   }
 
   // Internal helpers
+  protected get signal(): AbortSignal {
+    return this.request.signal
+  }
+
   get params() {
     return this.request.params
   }
