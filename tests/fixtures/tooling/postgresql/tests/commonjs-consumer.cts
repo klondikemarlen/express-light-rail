@@ -1,6 +1,6 @@
 import type { Config } from "prettier"
 
-import { API, BaseController, BaseService } from "express-light-rail"
+import { BaseController, BaseService } from "express-light-rail"
 import { createEslintConfig } from "express-light-rail/tooling/eslint"
 import { prettierConfig } from "express-light-rail/tooling/prettier"
 import { createVitestConfig } from "express-light-rail/tooling/vitest"
@@ -16,7 +16,7 @@ class LabelService extends BaseService<string> {
 }
 
 const label: string = LabelService.perform("ready")
-const controllerClass: typeof API = BaseController.API
+const controllerClass: typeof BaseController = BaseController
 const lint = createEslintConfig({ rules: { "no-debugger": "off" } })
 const format: Config = { ...prettierConfig, printWidth: 80 }
 const runner = createVitestConfig({ test: { globals: false } })

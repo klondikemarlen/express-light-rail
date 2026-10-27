@@ -1,5 +1,5 @@
 export {
-  API,
+  BaseController,
   BaseApiError,
   type BaseApiErrorBody,
   type BaseApiErrorMeta,
@@ -45,7 +45,6 @@ export {
   type ApiErrorHandlerOptions,
 } from "./middlewares/index.js"
 
-export * as BaseController from "./base-controller/index.js"
 export * as BasePolicies from "./base-policy/index.js"
 export * as BaseSerializers from "./base-serializer/index.js"
 export * as BaseJobs from "./base-job/index.js"

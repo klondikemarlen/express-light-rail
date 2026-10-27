@@ -3,10 +3,12 @@ import request from "supertest"
 
 import { createApiErrorHandler } from "@/middlewares/create-api-error-handler.js"
 
-import { API, BaseApiError } from "@/base-controller/api.js"
+import { BaseApiError } from "@/base-controller/base-api-error.js"
 
-describe("src/base-controller/api.ts", () => {
-  describe("API", () => {
+import { BaseController } from "@/base-controller/base-controller.js"
+
+describe("BaseController", () => {
+  describe("Express actions", () => {
     let app: express.Application
 
     beforeEach(() => {
@@ -17,7 +19,7 @@ describe("src/base-controller/api.ts", () => {
       test("when index is not implemented, it returns a public error", async () => {
         // Arrange
 
-        app.route("/example-api").get(API.index)
+        app.route("/example-api").get(BaseController.index)
         app.use(createApiErrorHandler())
 
         // Act
@@ -39,7 +41,7 @@ describe("src/base-controller/api.ts", () => {
       test("when create is not implemented, it returns a public error", async () => {
         // Arrange
 
-        app.route("/example-api").post(API.create)
+        app.route("/example-api").post(BaseController.create)
         app.use(createApiErrorHandler())
 
         // Act
@@ -61,7 +63,7 @@ describe("src/base-controller/api.ts", () => {
       test("when show is not implemented, it returns a public error", async () => {
         // Arrange
 
-        app.route("/example-api/:someParam").get(API.show)
+        app.route("/example-api/:someParam").get(BaseController.show)
         app.use(createApiErrorHandler())
 
         // Act
@@ -83,7 +85,7 @@ describe("src/base-controller/api.ts", () => {
       test("when update is not implemented, it returns a public error", async () => {
         // Arrange
 
-        app.route("/example-api/:someParam").put(API.update)
+        app.route("/example-api/:someParam").put(BaseController.update)
         app.use(createApiErrorHandler())
 
         // Act
@@ -104,7 +106,7 @@ describe("src/base-controller/api.ts", () => {
     describe(".destroy", () => {
       test("when destroy is not implemented, it returns a public error", async () => {
         // Arrange
-        app.route("/example-api/:someParam").delete(API.destroy)
+        app.route("/example-api/:someParam").delete(BaseController.destroy)
         app.use(createApiErrorHandler())
 
         // Act
@@ -123,29 +125,23 @@ describe("src/base-controller/api.ts", () => {
     })
 
     describe(".buildOrder", () => {
-      test("when query and defaults repeat a column, it keeps the highest priority order", () => {
+      test("when query and defaults repeat a column, it keeps the highest priority order", async () => {
         // Arrange
-        const controller = new API(
-          {
-            query: {
-              order: [
-                ["name", "DESC"],
-                ["id", "DESC"],
-              ],
-            },
-          } as unknown as express.Request,
-          {} as express.Response,
-          (() => undefined) as express.NextFunction
-        )
+        class OrderedController extends BaseController {
+          async index() {
+            return this.response.json(this.buildOrder([["name", "ASC"]], [["id", "ASC"]]))
+          }
+        }
+
+        app.get("/ordered", OrderedController.index)
 
         // Act
-        const result = controller.buildOrder(
-          [["name", "ASC"]],
-          [["id", "ASC"]]
-        )
+        const response = await request(app)
+          .get("/ordered")
+          .query("order[0][0]=name&order[0][1]=DESC&order[1][0]=id&order[1][1]=DESC")
 
         // Assert
-        expect(result).toEqual([
+        expect(response.body).toEqual([
           ["id", "ASC"],
           ["name", "DESC"],
         ])
@@ -159,7 +155,7 @@ describe("src/base-controller/api.ts", () => {
         }
       }
 
-      class ExampleController extends API {
+      class ExampleController extends BaseController {
         async create() {
           throw new ValidationError("Missing some attribute")
         }
@@ -191,7 +187,7 @@ describe("src/base-controller/api.ts", () => {
         // Arrange
         const originalError = new Error("private service failure")
 
-        class FailingController extends API {
+        class FailingController extends BaseController {
           async create() {
             throw originalError
           }

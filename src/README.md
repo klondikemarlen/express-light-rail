@@ -7,7 +7,7 @@ The package is intentionally not a full application framework. Host apps keep th
 ## Request path
 
 ```text
-Express route -> API controller -> Policy -> Service -> Model -> Serializer -> Response
+Express route -> BaseController action -> Policy -> Service -> Model -> Serializer -> Response
 ```
 
 ## Package areas
