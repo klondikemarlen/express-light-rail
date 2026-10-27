@@ -51,7 +51,7 @@ Route → Controller → Policy → Service → Model → Serializer → Respons
 - Services hold business logic and multi-step mutations behind `ServiceName.perform(args)`.
 - Serializers own response shape, association preload checks, and list/detail/reference views.
 - Jobs provide `perform`, `performNow`, `performLater`, and non-mutating queue/backend overrides. Use a host backend or opt into the BullMQ runtime.
-- Channels carry typed, labeled resource packets over one authenticated application namespace through an optional Socket.IO integration. Hosts authorize each resource event and own its serialized payload; a model does not need its own channel class.
+- Channels provide typed resource packets over one authenticated Socket.IO namespace. Hosts share connection-level authorization helpers in `ApplicationChannel`; concrete channel subscriptions authorize each resource event and serialize host-owned DTOs.
 
 Start with the [incremental adoption guide](docs/adoption.md) for host ownership,
 audited compatibility boundaries, a runnable Express example, and consumer cutover recipes.
