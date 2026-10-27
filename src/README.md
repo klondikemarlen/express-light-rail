@@ -18,7 +18,7 @@ Express route -> API controller -> Policy -> Service -> Model -> Serializer -> R
 - `base-serializer/` - response shaping with explicit preload checks.
 - `base-job/` - ActiveJob-like job entry points with host-owned queue persistence.
 - `jobs/` - explicit job registration and opt-in BullMQ queue processing; hosts own outbox schema, relay, and process lifecycle.
-- `channels/` - guarded process-local pub/sub and opt-in Socket.IO delivery of typed resource packets over a shared application channel; hosts own authentication, per-resource policies, packet catalogs, and HTTP startup.
+- `channels/` - guarded process-local pub/sub and opt-in Socket.IO delivery through a shared host `ApplicationChannel` and concrete resource subscriptions; hosts own authentication, policies, packet catalogs, DTOs, and HTTP startup.
 - `model-helpers/` - typed Sequelize scopes and fresh-instance scoped primary-key lookups.
 - `utils/` - small shared utilities that support the primitives.
 

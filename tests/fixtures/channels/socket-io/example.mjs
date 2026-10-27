@@ -9,48 +9,36 @@ const users = new Map([
 ])
 const resourceEvents = new PubSub()
 
-class RecordPolicy {
-  static canReceive(user, record) {
-    return record.ownerId === user.id
-  }
-}
-
-class ProjectPolicy {
-  static canReceive(user, project) {
-    return project.ownerId === user.id && user.projectIds.includes(project.id)
-  }
-}
-
 class ApplicationChannel extends BaseChannel {
+  isCurrentUser(userId) {
+    return this.currentUser.id === userId
+  }
+}
+
+class UpdatesChannel extends ApplicationChannel {
   constructor(user, socket) {
     super(user, socket)
     this.onRecordUpdated = (record) => {
-      if (RecordPolicy.canReceive(this.currentUser, record)) {
-        this.broadcast({
-          type: "record.updated",
-          payload: { id: record.id, value: record.value },
-        })
+      if (this.isCurrentUser(record.ownerId)) {
+        this.broadcast("records:updated", { id: record.id, value: record.value })
       }
     }
     this.onProjectUpdated = (project) => {
-      if (ProjectPolicy.canReceive(this.currentUser, project)) {
-        this.broadcast({
-          type: "project.updated",
-          payload: { id: project.id, name: project.name },
-        })
+      if (this.isCurrentUser(project.ownerId) && this.currentUser.projectIds.includes(project.id)) {
+        this.broadcast("projects:updated", { id: project.id, name: project.name })
       }
     }
   }
 
   subscribed() {
-    resourceEvents.subscribe("record.updated", this.onRecordUpdated)
-    resourceEvents.subscribe("project.updated", this.onProjectUpdated)
+    resourceEvents.subscribe("records:updated", this.onRecordUpdated)
+    resourceEvents.subscribe("projects:updated", this.onProjectUpdated)
     super.subscribed()
   }
 
   unsubscribed() {
-    resourceEvents.unsubscribe("record.updated", this.onRecordUpdated)
-    resourceEvents.unsubscribe("project.updated", this.onProjectUpdated)
+    resourceEvents.unsubscribe("records:updated", this.onRecordUpdated)
+    resourceEvents.unsubscribe("projects:updated", this.onProjectUpdated)
     super.unsubscribed()
   }
 }
@@ -68,7 +56,7 @@ app.post("/records", (request, response) => {
     return response.status(400).json({ error: "Unknown record owner" })
   }
 
-  resourceEvents.publish("record.updated", record)
+  resourceEvents.publish("records:updated", record)
   return response.status(201).json({ record })
 })
 app.post("/projects", (request, response) => {
@@ -81,13 +69,13 @@ app.post("/projects", (request, response) => {
     return response.status(400).json({ error: "Unknown project owner" })
   }
 
-  resourceEvents.publish("project.updated", project)
+  resourceEvents.publish("projects:updated", project)
   return response.status(201).json({ project })
 })
 
 const httpServer = createServer(app)
 const channelManager = new ChannelManager(httpServer, {
-  channels: { "/updates": ApplicationChannel },
+  channels: { "/updates": UpdatesChannel },
   authenticate(socket) {
     const user = users.get(socket.handshake.auth.userId)
     if (user === undefined) throw new Error("The host rejected this user")

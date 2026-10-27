@@ -1,6 +1,8 @@
 import type { Socket } from "socket.io"
 
-import type { ChannelPacket } from "@/contracts/channel-packet.js"
+type BroadcastArguments<Packets extends object> = {
+  [Type in keyof Packets & string]: [type: Type, payload: Packets[Type]]
+}[keyof Packets & string]
 
 export class BaseChannel<User, Packets extends object> {
   constructor(
@@ -20,10 +22,11 @@ export class BaseChannel<User, Packets extends object> {
     this.socket.emit("unsubscribed")
   }
 
-  broadcast(packet: ChannelPacket<Packets>): void {
+  broadcast(...arguments_: BroadcastArguments<Packets>): void
+  broadcast(type: keyof Packets & string, payload: Packets[keyof Packets & string]): void {
     if (!this.socket.connected) return
 
-    this.socket.emit("packet", packet)
+    this.socket.emit("packet", { type, payload })
   }
 
   protected readonly invalidate = (): void => {
