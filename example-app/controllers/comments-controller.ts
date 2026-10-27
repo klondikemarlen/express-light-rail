@@ -5,7 +5,6 @@ import { Comment, Thread } from "@example-app/models/index.js"
 import { CommentPolicy } from "@example-app/policies/comment-policy.js"
 import { CommentSerializer } from "@example-app/serializers/comment-serializer.js"
 import { CreateCommentService } from "@example-app/services/create-comment-service.js"
-import { DestroyCommentService } from "@example-app/services/destroy-comment-service.js"
 import { UpdateCommentService } from "@example-app/services/update-comment-service.js"
 
 export class CommentsController extends ApplicationController<Comment> {
@@ -57,7 +56,7 @@ export class CommentsController extends ApplicationController<Comment> {
   async destroy(): Promise<void> {
     const comment = await this.findComment()
     new CommentPolicy(this.currentUser, comment).authorize("destroy")
-    await DestroyCommentService.perform(comment)
+    await comment.destroy()
     this.response.status(204).end()
   }
 

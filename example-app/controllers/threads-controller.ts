@@ -5,7 +5,6 @@ import { Thread } from "@example-app/models/index.js"
 import { ThreadPolicy } from "@example-app/policies/thread-policy.js"
 import { ThreadSerializer } from "@example-app/serializers/thread-serializer.js"
 import { CreateThreadService } from "@example-app/services/create-thread-service.js"
-import { DestroyThreadService } from "@example-app/services/destroy-thread-service.js"
 import { UpdateThreadService } from "@example-app/services/update-thread-service.js"
 
 export class ThreadsController extends ApplicationController<Thread> {
@@ -52,7 +51,7 @@ export class ThreadsController extends ApplicationController<Thread> {
   async destroy(): Promise<void> {
     const thread = await this.findThread(this.params.threadId)
     new ThreadPolicy(this.currentUser, thread).authorize("destroy")
-    await DestroyThreadService.perform(thread)
+    await thread.destroy()
     this.response.status(204).end()
   }
 
