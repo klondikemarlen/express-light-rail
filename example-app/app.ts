@@ -8,6 +8,16 @@ export const app = express()
 
 app.use(express.json())
 
+app.use("/api", (request, _response, next) => {
+  const body: unknown = request.body
+  if (body === null || Array.isArray(body) || (body !== undefined && typeof body !== "object")) {
+    next(new BaseApiError("invalid_input", "Expected a JSON object", {}, 400))
+    return
+  }
+
+  next()
+})
+
 app.use("/api", router)
 
 app.use("/api", createApiNotFoundHandler())

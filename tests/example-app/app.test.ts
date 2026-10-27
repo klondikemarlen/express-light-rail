@@ -215,6 +215,18 @@ describe("discussion board", () => {
     expect(response.body.error.code).toBe("unauthorized")
   })
 
+  test("when a JSON array is submitted as thread attributes, rejects it as invalid input", async () => {
+    // Arrange
+    const route = request(app).post("/api/threads").set("x-user-id", "alice").send([null])
+
+    // Act
+    const response = await route
+
+    // Assert
+    expect(response.status).toBe(400)
+    expect(response.body.error.code).toBe("invalid_input")
+  })
+
   test("when JSON cannot be parsed, preserves the client error status", async () => {
     // Arrange
     const route = request(app)
