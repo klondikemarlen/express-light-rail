@@ -10,12 +10,27 @@ import {
   ChannelManager,
   PubSub,
   type ChannelManagerOptions,
+  type ChannelPacket,
+  type ChannelServerEvents,
 } from "express-light-rail/channels/socket-io"
 
 type User = { id: string }
+type HostPackets = {
+  "authenticated.user": { userId: string }
+  "record.updated": { recordId: string }
+  "project.updated": { projectId: string }
+  "other.changed": { recordId: string }
+  "late.success": { message: string }
+}
+type ClientCommands = {
+  barrier: (acknowledge: (ready: boolean) => void) => void
+  "cancel-work": (acknowledge: (aborted: boolean) => void) => void
+}
+type TypedClientSocket = ClientSocket<ChannelServerEvents<HostPackets>, ClientCommands>
 type HostEvents = {
   "record.updated": [recordId: string, ownerId: string]
   "other.changed": [recordId: string]
+  "project.updated": [projectId: string, ownerId: string]
   "sync.failure": []
   "async.failure": []
   "success.after.cancel": []
@@ -69,7 +84,7 @@ function openTransport(url: string): Manager {
   return manager
 }
 
-function connectSocket(socket: ClientSocket): Promise<void> {
+function connectSocket(socket: TypedClientSocket): Promise<void> {
   const { promise, resolve, reject } = Promise.withResolvers<void>()
   socket.once("connect", resolve)
   socket.once("connect_error", reject)
@@ -77,13 +92,16 @@ function connectSocket(socket: ClientSocket): Promise<void> {
   return promise
 }
 
-function waitForEvent(socket: ClientSocket, event: string): Promise<unknown[]> {
+function waitForEvent(
+  socket: TypedClientSocket,
+  event: keyof ChannelServerEvents<HostPackets> | "connect_error" | "disconnect"
+): Promise<unknown[]> {
   const { promise, resolve } = Promise.withResolvers<unknown[]>()
   socket.once(event, (...payload: unknown[]) => resolve(payload))
   return promise
 }
 
-function acknowledge(socket: ClientSocket, event: string): Promise<unknown> {
+function acknowledge(socket: TypedClientSocket, event: keyof ClientCommands): Promise<unknown> {
   const { promise, resolve } = Promise.withResolvers<unknown>()
   socket.emit(event, resolve)
   return promise
@@ -101,7 +119,7 @@ describe("Socket.IO channel consumers", () => {
     // Arrange
     let channelStarts = 0
 
-    class AuthenticatedChannel extends BaseChannel<User> {
+    class AuthenticatedChannel extends BaseChannel<User, HostPackets> {
       constructor(user: User, socket: ServerSocket) {
         super(user, socket)
         channelStarts += 1
@@ -113,7 +131,7 @@ describe("Socket.IO channel consumers", () => {
       authenticate,
     })
     const transport = openTransport(host.url)
-    const accepted = transport.socket("/records", { auth: { userId: "alice" } })
+    const accepted: TypedClientSocket = transport.socket("/records", { auth: { userId: "alice" } })
     const subscription = waitForEvent(accepted, "subscribed")
 
     // Act
@@ -129,7 +147,7 @@ describe("Socket.IO channel consumers", () => {
     // Arrange
     let channelStarts = 0
 
-    class AuthenticatedChannel extends BaseChannel<User> {
+    class AuthenticatedChannel extends BaseChannel<User, HostPackets> {
       constructor(user: User, socket: ServerSocket) {
         super(user, socket)
         channelStarts += 1
@@ -141,7 +159,9 @@ describe("Socket.IO channel consumers", () => {
       authenticate,
     })
     const transport = openTransport(host.url)
-    const rejected = transport.socket("/records", { auth: { userId: "mallory" } })
+    const rejected: TypedClientSocket = transport.socket("/records", {
+      auth: { userId: "mallory" },
+    })
     const connectionError = waitForEvent(rejected, "connect_error")
 
     // Act
@@ -155,9 +175,9 @@ describe("Socket.IO channel consumers", () => {
 
   test("when a connection is recovered, reauthenticates before restoring its channel", async () => {
     // Arrange
-    class AuthenticatedChannel extends BaseChannel<User> {
+    class AuthenticatedChannel extends BaseChannel<User, HostPackets> {
       subscribed(): void {
-        this.broadcast("authenticated.user", this.currentUser.id)
+        this.broadcast({ type: "authenticated.user", payload: { userId: this.currentUser.id } })
       }
     }
 
@@ -171,16 +191,16 @@ describe("Socket.IO channel consumers", () => {
       },
     })
     const transport = openTransport(host.url)
-    const socket = transport.socket("/records", { auth: { userId: "alice" } })
-    const initialUser = waitForEvent(socket, "authenticated.user")
+    const socket: TypedClientSocket = transport.socket("/records", { auth: { userId: "alice" } })
+    const initialUser = waitForEvent(socket, "packet")
     await connectSocket(socket)
-    await initialUser
+    const [initialPacket] = await initialUser
 
     // Act
     const disconnected = waitForEvent(socket, "disconnect")
     transport.engine?.close()
     await disconnected
-    const restoredUser = waitForEvent(socket, "authenticated.user")
+    const restoredUser = waitForEvent(socket, "packet")
     const rejectedRecovery = waitForEvent(socket, "disconnect").then(() => {
       throw new Error("The recovered channel was disconnected")
     })
@@ -188,18 +208,19 @@ describe("Socket.IO channel consumers", () => {
     const [user] = await Promise.race([restoredUser, rejectedRecovery])
 
     // Assert
+    expect(initialPacket).toEqual({ type: "authenticated.user", payload: { userId: "alice" } })
     expect(socket.recovered).toBe(true)
-    expect(user).toBe("alice")
+    expect(user).toEqual({ type: "authenticated.user", payload: { userId: "alice" } })
   })
 
   test("when record updates are published, targets only the owning user", async () => {
     // Arrange
     const events = new PubSub<HostEvents>()
 
-    class RecordsChannel extends BaseChannel<User> {
+    class RecordsChannel extends BaseChannel<User, HostPackets> {
       private readonly onRecordUpdated = (recordId: string, ownerId: string): void => {
         if (this.currentUser.id === ownerId) {
-          this.broadcast("record.updated", recordId)
+          this.broadcast({ type: "record.updated", payload: { recordId } })
         }
       }
 
@@ -227,12 +248,14 @@ describe("Socket.IO channel consumers", () => {
     })
     const aliceTransport = openTransport(host.url)
     const bobTransport = openTransport(host.url)
-    const alice = aliceTransport.socket("/records", { auth: { userId: "alice" } })
-    const bob = bobTransport.socket("/records", { auth: { userId: "bob" } })
-    const aliceEvents: string[] = []
-    const bobEvents: string[] = []
-    alice.on("record.updated", (recordId: string) => aliceEvents.push(recordId))
-    bob.on("record.updated", (recordId: string) => bobEvents.push(recordId))
+    const alice: TypedClientSocket = aliceTransport.socket("/records", {
+      auth: { userId: "alice" },
+    })
+    const bob: TypedClientSocket = bobTransport.socket("/records", { auth: { userId: "bob" } })
+    const aliceEvents: ChannelPacket<HostPackets>[] = []
+    const bobEvents: ChannelPacket<HostPackets>[] = []
+    alice.on("packet", (packet) => aliceEvents.push(packet))
+    bob.on("packet", (packet) => bobEvents.push(packet))
 
     const aliceSubscription = waitForEvent(alice, "subscribed")
     const bobSubscription = waitForEvent(bob, "subscribed")
@@ -241,21 +264,108 @@ describe("Socket.IO channel consumers", () => {
     await Promise.all([connectSocket(alice), connectSocket(bob)])
     await Promise.all([aliceSubscription, bobSubscription])
 
-    const aliceRecord = waitForEvent(alice, "record.updated")
+    const aliceRecord = waitForEvent(alice, "packet")
     events.publish("record.updated", "record-1", "alice")
     await aliceRecord
     await acknowledge(bob, "barrier")
 
     // Assert
-    expect(aliceEvents).toEqual(["record-1"])
+    expect(aliceEvents).toEqual([{ type: "record.updated", payload: { recordId: "record-1" } }])
     expect(bobEvents).toEqual([])
+  })
+
+  test("when resource packets share a namespace, applies per-resource policy per user", async () => {
+    // Arrange
+    const events = new PubSub<HostEvents>()
+    const recordReaders = new Set(["alice", "bob"])
+    const projectReaders = new Set(["alice", "bob"])
+
+    class ApplicationChannel extends BaseChannel<User, HostPackets> {
+      constructor(user: User, socket: ServerSocket) {
+        super(user, socket)
+        socket.on("barrier", (acknowledge: (ready: boolean) => void) => {
+          acknowledge(true)
+        })
+      }
+
+      private readonly onRecordUpdated = (recordId: string, ownerId: string): void => {
+        if (this.currentUser.id === ownerId && recordReaders.has(this.currentUser.id)) {
+          this.broadcast({ type: "record.updated", payload: { recordId } })
+        }
+      }
+
+      private readonly onProjectUpdated = (projectId: string, ownerId: string): void => {
+        if (this.currentUser.id === ownerId && projectReaders.has(this.currentUser.id)) {
+          this.broadcast({ type: "project.updated", payload: { projectId } })
+        }
+      }
+
+      subscribed(): void {
+        events.subscribe("record.updated", this.onRecordUpdated)
+        events.subscribe("project.updated", this.onProjectUpdated)
+        super.subscribed()
+      }
+
+      unsubscribed(): void {
+        events.unsubscribe("record.updated", this.onRecordUpdated)
+        events.unsubscribe("project.updated", this.onProjectUpdated)
+        super.unsubscribed()
+      }
+    }
+
+    const host = await startHost({
+      channels: { "/updates": ApplicationChannel },
+      authenticate,
+    })
+    const aliceTransport = openTransport(host.url)
+    const bobTransport = openTransport(host.url)
+    const alice: TypedClientSocket = aliceTransport.socket("/updates", {
+      auth: { userId: "alice" },
+    })
+    const bob: TypedClientSocket = bobTransport.socket("/updates", { auth: { userId: "bob" } })
+    const alicePackets: ChannelPacket<HostPackets>[] = []
+    const bobPackets: ChannelPacket<HostPackets>[] = []
+    alice.on("packet", (packet) => alicePackets.push(packet))
+    bob.on("packet", (packet) => bobPackets.push(packet))
+    const aliceSubscription = waitForEvent(alice, "subscribed")
+    const bobSubscription = waitForEvent(bob, "subscribed")
+
+    // Act
+    await Promise.all([connectSocket(alice), connectSocket(bob)])
+    await Promise.all([aliceSubscription, bobSubscription])
+
+    const aliceRecord = waitForEvent(alice, "packet")
+    events.publish("record.updated", "record-1", "alice")
+    await aliceRecord
+    await acknowledge(bob, "barrier")
+
+    const aliceProject = waitForEvent(alice, "packet")
+    events.publish("project.updated", "project-1", "alice")
+    await aliceProject
+    await acknowledge(bob, "barrier")
+
+    const bobProject = waitForEvent(bob, "packet")
+    events.publish("project.updated", "project-2", "bob")
+    await bobProject
+    await acknowledge(alice, "barrier")
+
+    recordReaders.delete("alice")
+    events.publish("record.updated", "record-2", "alice")
+    await Promise.all([acknowledge(alice, "barrier"), acknowledge(bob, "barrier")])
+
+    // Assert
+    expect(alicePackets).toEqual([
+      { type: "record.updated", payload: { recordId: "record-1" } },
+      { type: "project.updated", payload: { projectId: "project-1" } },
+    ])
+    expect(bobPackets).toEqual([{ type: "project.updated", payload: { projectId: "project-2" } }])
   })
 
   test("when host events are published, targets only their namespace", async () => {
     // Arrange
     const events = new PubSub<HostEvents>()
 
-    class RecordsChannel extends BaseChannel<User> {
+    class RecordsChannel extends BaseChannel<User, HostPackets> {
       constructor(user: User, socket: ServerSocket) {
         super(user, socket)
         socket.on("barrier", (acknowledge: (ready: boolean) => void) => {
@@ -264,7 +374,7 @@ describe("Socket.IO channel consumers", () => {
       }
 
       private readonly onRecordUpdated = (recordId: string): void => {
-        this.broadcast("host.event", `record:${recordId}`)
+        this.broadcast({ type: "record.updated", payload: { recordId } })
       }
 
       subscribed(): void {
@@ -278,7 +388,7 @@ describe("Socket.IO channel consumers", () => {
       }
     }
 
-    class OtherChannel extends BaseChannel<User> {
+    class OtherChannel extends BaseChannel<User, HostPackets> {
       constructor(user: User, socket: ServerSocket) {
         super(user, socket)
         socket.on("barrier", (acknowledge: (ready: boolean) => void) => {
@@ -287,7 +397,7 @@ describe("Socket.IO channel consumers", () => {
       }
 
       private readonly onOtherChanged = (recordId: string): void => {
-        this.broadcast("host.event", `other:${recordId}`)
+        this.broadcast({ type: "other.changed", payload: { recordId } })
       }
 
       subscribed(): void {
@@ -306,12 +416,12 @@ describe("Socket.IO channel consumers", () => {
       authenticate,
     })
     const transport = openTransport(host.url)
-    const records = transport.socket("/records", { auth: { userId: "alice" } })
-    const other = transport.socket("/other", { auth: { userId: "alice" } })
-    const recordEvents: string[] = []
-    const otherEvents: string[] = []
-    records.on("host.event", (event: string) => recordEvents.push(event))
-    other.on("host.event", (event: string) => otherEvents.push(event))
+    const records: TypedClientSocket = transport.socket("/records", { auth: { userId: "alice" } })
+    const other: TypedClientSocket = transport.socket("/other", { auth: { userId: "alice" } })
+    const recordEvents: ChannelPacket<HostPackets>[] = []
+    const otherEvents: ChannelPacket<HostPackets>[] = []
+    records.on("packet", (packet) => recordEvents.push(packet))
+    other.on("packet", (packet) => otherEvents.push(packet))
     const recordsSubscription = waitForEvent(records, "subscribed")
     const otherSubscription = waitForEvent(other, "subscribed")
 
@@ -319,19 +429,19 @@ describe("Socket.IO channel consumers", () => {
     await Promise.all([connectSocket(records), connectSocket(other)])
     await Promise.all([recordsSubscription, otherSubscription])
 
-    const recordEvent = waitForEvent(records, "host.event")
+    const recordEvent = waitForEvent(records, "packet")
     events.publish("record.updated", "record-1", "alice")
     await recordEvent
     await acknowledge(other, "barrier")
 
-    const otherEvent = waitForEvent(other, "host.event")
+    const otherEvent = waitForEvent(other, "packet")
     events.publish("other.changed", "record-2")
     await otherEvent
     await acknowledge(records, "barrier")
 
     // Assert
-    expect(otherEvents).toEqual(["other:record-2"])
-    expect(recordEvents).toEqual(["record:record-1"])
+    expect(otherEvents).toEqual([{ type: "other.changed", payload: { recordId: "record-2" } }])
+    expect(recordEvents).toEqual([{ type: "record.updated", payload: { recordId: "record-1" } }])
   })
 
   test("when a client disconnects, unsubscribes its host listeners once", async () => {
@@ -341,7 +451,7 @@ describe("Socket.IO channel consumers", () => {
     let listenerCalls = 0
     let cleanupCount = 0
 
-    class DisconnectChannel extends BaseChannel<User> {
+    class DisconnectChannel extends BaseChannel<User, HostPackets> {
       private readonly onFailure = (): void => {
         listenerCalls += 1
       }
@@ -364,7 +474,7 @@ describe("Socket.IO channel consumers", () => {
       authenticate,
     })
     const transport = openTransport(host.url)
-    const socket = transport.socket("/records", { auth: { userId: "alice" } })
+    const socket: TypedClientSocket = transport.socket("/records", { auth: { userId: "alice" } })
     const subscription = waitForEvent(socket, "subscribed")
 
     // Act
@@ -389,7 +499,7 @@ describe("Socket.IO channel consumers", () => {
     // Arrange
     const events = new PubSub<HostEvents>()
 
-    class RecoveryChannel extends BaseChannel<User> {
+    class RecoveryChannel extends BaseChannel<User, HostPackets> {
       private readonly onSyncFailure = (): void => {
         throw new Error("synchronous listener failure")
       }
@@ -419,7 +529,7 @@ describe("Socket.IO channel consumers", () => {
       authenticate,
     })
     const transport = openTransport(host.url)
-    const socket = transport.socket("/records", { auth: { userId: "alice" } })
+    const socket: TypedClientSocket = transport.socket("/records", { auth: { userId: "alice" } })
     const subscription = waitForEvent(socket, "subscribed")
 
     // Act
@@ -447,14 +557,16 @@ describe("Socket.IO channel consumers", () => {
     const callbackFinished = deferred()
     const deliveredMessages: string[] = []
 
-    class SuccessChannel extends BaseChannel<User> {
+    class SuccessChannel extends BaseChannel<User, HostPackets> {
       private signal: AbortSignal | undefined
 
       private readonly onSuccess = async (): Promise<void> => {
         callbackStarted.resolve()
         try {
           await gate.promise
-          if (this.signal?.aborted !== true) this.broadcast("late.success")
+          if (this.signal?.aborted !== true) {
+            this.broadcast({ type: "late.success", payload: { message: "late.success" } })
+          }
         } finally {
           callbackFinished.resolve()
         }
@@ -487,8 +599,10 @@ describe("Socket.IO channel consumers", () => {
       authenticate,
     })
     const transport = openTransport(host.url)
-    const socket = transport.socket("/records", { auth: { userId: "alice" } })
-    socket.on("late.success", () => deliveredMessages.push("late.success"))
+    const socket: TypedClientSocket = transport.socket("/records", { auth: { userId: "alice" } })
+    socket.on("packet", (packet) => {
+      if (packet.type === "late.success") deliveredMessages.push(packet.payload.message)
+    })
     const subscription = waitForEvent(socket, "subscribed")
 
     // Act
@@ -515,7 +629,7 @@ describe("Socket.IO channel consumers", () => {
     const invalidations: string[] = []
     let recoveryCount = 0
 
-    class FailureChannel extends BaseChannel<User> {
+    class FailureChannel extends BaseChannel<User, HostPackets> {
       private signal: AbortSignal | undefined
 
       private readonly onFailure = async (): Promise<void> => {
@@ -558,7 +672,7 @@ describe("Socket.IO channel consumers", () => {
       authenticate,
     })
     const transport = openTransport(host.url)
-    const socket = transport.socket("/records", { auth: { userId: "alice" } })
+    const socket: TypedClientSocket = transport.socket("/records", { auth: { userId: "alice" } })
     socket.on("invalidated", () => invalidations.push("invalidated"))
     const subscription = waitForEvent(socket, "subscribed")
 
@@ -587,7 +701,7 @@ describe("Socket.IO channel consumers", () => {
     let listenerCalls = 0
     let cleanupCount = 0
 
-    class FailedChannel extends BaseChannel<User> {
+    class FailedChannel extends BaseChannel<User, HostPackets> {
       private readonly onPartialUpdate = (): void => {
         listenerCalls += 1
       }
@@ -605,7 +719,7 @@ describe("Socket.IO channel consumers", () => {
       }
     }
 
-    class HealthyChannel extends BaseChannel<User> {
+    class HealthyChannel extends BaseChannel<User, HostPackets> {
       subscribed(): void {
         this.socket.on("barrier", (acknowledge: (ready: boolean) => void) => {
           acknowledge(true)
@@ -623,8 +737,8 @@ describe("Socket.IO channel consumers", () => {
       },
     })
     const transport = openTransport(host.url)
-    const failed = transport.socket("/records", { auth: { userId: "alice" } })
-    const healthy = transport.socket("/other", { auth: { userId: "alice" } })
+    const failed: TypedClientSocket = transport.socket("/records", { auth: { userId: "alice" } })
+    const healthy: TypedClientSocket = transport.socket("/other", { auth: { userId: "alice" } })
     const failedDisconnect = waitForEvent(failed, "disconnect")
     const healthySubscription = waitForEvent(healthy, "subscribed")
 
@@ -656,7 +770,7 @@ describe("Socket.IO channel consumers", () => {
     const cleanupFinished = deferred()
     let cleanupCount = 0
 
-    class SlowChannel extends BaseChannel<User> {
+    class SlowChannel extends BaseChannel<User, HostPackets> {
       async subscribed(): Promise<void> {
         initializationStarted.resolve()
         await finishInitialization.promise
@@ -673,7 +787,7 @@ describe("Socket.IO channel consumers", () => {
       authenticate,
     })
     const transport = openTransport(host.url)
-    const socket = transport.socket("/records", { auth: { userId: "alice" } })
+    const socket: TypedClientSocket = transport.socket("/records", { auth: { userId: "alice" } })
 
     // Act
     await connectSocket(socket)

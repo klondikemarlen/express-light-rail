@@ -14,6 +14,17 @@ function waitForEvent(socket, event) {
   return new Promise((resolve) => socket.once(event, (...payload) => resolve(payload)))
 }
 
+function waitForPacket(socket, packetType) {
+  return new Promise((resolve) => {
+    const receivePacket = (packet) => {
+      if (packet.type !== packetType) return
+      socket.off("packet", receivePacket)
+      resolve(packet)
+    }
+    socket.on("packet", receivePacket)
+  })
+}
+
 function connect(socket) {
   return new Promise((resolve, reject) => {
     socket.once("connect", resolve)
@@ -27,39 +38,55 @@ function acknowledge(socket, event) {
 }
 
 async function verifyInstalledFormat(channelExports, format) {
-  const events = new channelExports.PubSub()
+  const resourceEvents = new channelExports.PubSub()
   const app = express()
   app.get("/health", (_request, response) => response.sendStatus(204))
   const httpServer = createServer(app)
   const users = new Map([
-    ["alice", { id: "alice" }],
-    ["bob", { id: "bob" }],
+    ["alice", { id: "alice", projectIds: ["project-1"] }],
+    ["bob", { id: "bob", projectIds: ["project-2"] }],
   ])
 
-  class RecordsChannel extends channelExports.BaseChannel {
+  class ApplicationChannel extends channelExports.BaseChannel {
     constructor(user, socket) {
       super(user, socket)
-      this.onRecordUpdated = (recordId, ownerId) => {
-        if (this.currentUser.id === ownerId) {
-          this.broadcast("record.updated", recordId)
+      this.onRecordUpdated = (record) => {
+        if (record.ownerId === this.currentUser.id) {
+          this.broadcast({
+            type: "record.updated",
+            payload: { id: record.id, value: record.value },
+          })
+        }
+      }
+      this.onProjectUpdated = (project) => {
+        const canReceiveProject =
+          project.ownerId === this.currentUser.id &&
+          this.currentUser.projectIds.includes(project.id)
+        if (canReceiveProject) {
+          this.broadcast({
+            type: "project.updated",
+            payload: { id: project.id, name: project.name },
+          })
         }
       }
       socket.on("barrier", (acknowledge) => acknowledge(true))
     }
 
     subscribed() {
-      events.subscribe("record.updated", this.onRecordUpdated)
+      resourceEvents.subscribe("record.updated", this.onRecordUpdated)
+      resourceEvents.subscribe("project.updated", this.onProjectUpdated)
       super.subscribed()
     }
 
     unsubscribed() {
-      events.unsubscribe("record.updated", this.onRecordUpdated)
+      resourceEvents.unsubscribe("record.updated", this.onRecordUpdated)
+      resourceEvents.unsubscribe("project.updated", this.onProjectUpdated)
       super.unsubscribed()
     }
   }
 
   const channelManager = new channelExports.ChannelManager(httpServer, {
-    channels: { "/records": RecordsChannel },
+    channels: { "/updates": ApplicationChannel },
     authenticate(socket) {
       const user = users.get(socket.handshake.auth.userId)
       if (user === undefined) throw new Error("The host rejected this user")
@@ -82,12 +109,12 @@ async function verifyInstalledFormat(channelExports, format) {
     reconnection: false,
     timeout: 5_000,
   })
-  const alice = aliceManager.socket("/records", { auth: { userId: "alice" } })
-  const bob = bobManager.socket("/records", { auth: { userId: "bob" } })
-  const aliceEvents = []
-  const bobEvents = []
-  alice.on("record.updated", (recordId) => aliceEvents.push(recordId))
-  bob.on("record.updated", (recordId) => bobEvents.push(recordId))
+  const alice = aliceManager.socket("/updates", { auth: { userId: "alice" } })
+  const bob = bobManager.socket("/updates", { auth: { userId: "bob" } })
+  const alicePackets = []
+  const bobPackets = []
+  alice.on("packet", (packet) => alicePackets.push(packet))
+  bob.on("packet", (packet) => bobPackets.push(packet))
 
   try {
     const aliceSubscription = waitForEvent(alice, "subscribed")
@@ -95,13 +122,39 @@ async function verifyInstalledFormat(channelExports, format) {
     await Promise.all([connect(alice), connect(bob)])
     await Promise.all([aliceSubscription, bobSubscription])
 
-    const receivedByAlice = waitForEvent(alice, "record.updated")
-    events.publish("record.updated", "record-1", "alice")
-    assert.deepEqual(await receivedByAlice, ["record-1"])
-    assert.equal(await acknowledge(bob, "barrier"), true)
-    assert.deepEqual(aliceEvents, ["record-1"])
-    assert.deepEqual(bobEvents, [])
-    process.stdout.write(`${format} package export delivered only Alice's record event\n`)
+    const recordForAlice = waitForPacket(alice, "record.updated")
+    resourceEvents.publish("record.updated", {
+      id: "record-1",
+      ownerId: "alice",
+      value: "draft",
+    })
+    assert.deepEqual(await recordForAlice, {
+      type: "record.updated",
+      payload: { id: "record-1", value: "draft" },
+    })
+    await acknowledge(bob, "barrier")
+
+    const projectForBob = waitForPacket(bob, "project.updated")
+    resourceEvents.publish("project.updated", {
+      id: "project-2",
+      ownerId: "bob",
+      name: "Roadmap",
+    })
+    assert.deepEqual(await projectForBob, {
+      type: "project.updated",
+      payload: { id: "project-2", name: "Roadmap" },
+    })
+    await acknowledge(alice, "barrier")
+
+    assert.deepEqual(alicePackets, [
+      { type: "record.updated", payload: { id: "record-1", value: "draft" } },
+    ])
+    assert.deepEqual(bobPackets, [
+      { type: "project.updated", payload: { id: "project-2", name: "Roadmap" } },
+    ])
+    process.stdout.write(
+      `${format} package export delivered two policy-filtered resource packets\n`
+    )
   } finally {
     alice.disconnect()
     bob.disconnect()
