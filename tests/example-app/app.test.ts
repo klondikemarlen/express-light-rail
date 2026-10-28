@@ -400,4 +400,77 @@ describe("discussion board", () => {
       },
     })
   })
+
+  test("when URL-encoded attributes are submitted, creates an authorized thread", async () => {
+    // Arrange
+    const author = await userFactory.create({
+      username: "alice",
+    })
+    const route = request(app)
+      .post("/api/threads")
+      .set("x-user-id", author.username)
+      .type("form")
+      .send({
+        title: "A form discussion",
+        body: "URL-encoded content",
+      })
+
+    // Act
+    const response = await route
+
+    // Assert
+    expect(response.status).toBe(201)
+    expect(response.body).toEqual({
+      thread: {
+        id: 1,
+        authorId: author.id,
+        title: "A form discussion",
+        body: "URL-encoded content",
+      },
+    })
+  })
+
+  test("when multipart text fields are submitted, creates an authorized thread", async () => {
+    // Arrange
+    const author = await userFactory.create({
+      username: "alice",
+    })
+    const route = request(app)
+      .post("/api/threads")
+      .set("x-user-id", author.username)
+      .field("title", "A multipart discussion")
+      .field("body", "Text fields without file uploads")
+
+    // Act
+    const response = await route
+
+    // Assert
+    expect(response.status).toBe(201)
+    expect(response.body).toEqual({
+      thread: {
+        id: 1,
+        authorId: author.id,
+        title: "A multipart discussion",
+        body: "Text fields without file uploads",
+      },
+    })
+  })
+
+  test("when an unknown API path requests HTML, returns the JSON not-found response", async () => {
+    // Arrange
+    const route = request(app).get("/api/missing").set("Accept", "text/html")
+
+    // Act
+    const response = await route
+
+    // Assert
+    expect(response.status).toBe(404)
+    expect(response.body).toEqual({
+      error: {
+        code: "not_found",
+        msg: "Not Found",
+        meta: {},
+      },
+    })
+  })
 })

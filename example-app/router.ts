@@ -1,45 +1,10 @@
-import { BaseApiError } from "express-light-rail"
-import { Router, type NextFunction, type Request, type Response } from "express"
+import { Router } from "express"
 
 import { CommentsController } from "@example-app/controllers/comments-controller.js"
 import { ThreadsController } from "@example-app/controllers/threads-controller.js"
 import { UsersController } from "@example-app/controllers/users-controller.js"
-import { User } from "@example-app/models/index.js"
-
-async function authenticateDemoUser(
-  request: Request,
-  _response: Response,
-  next: NextFunction
-): Promise<void> {
-  try {
-    const username = request.get("x-user-id")
-    if (!username) {
-      next(new BaseApiError("unauthorized", "Authentication required", {}, 401))
-      return
-    }
-
-    const user = await User.findOne({
-      where: {
-        username,
-      },
-    })
-    if (!user) {
-      next(new BaseApiError("unauthorized", "Authentication required", {}, 401))
-      return
-    }
-
-    Object.assign(request, {
-      currentUser: user,
-    })
-    next()
-  } catch (error: unknown) {
-    next(error)
-  }
-}
 
 export const router = Router()
-
-router.use(authenticateDemoUser)
 
 router.route("/users").get(UsersController.index)
 router.route("/users/:userId").get(UsersController.show)
