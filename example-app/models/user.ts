@@ -46,4 +46,7 @@ export class User extends Model<InferAttributes<User>, InferCreationAttributes<U
     },
   })
   declare name: string
+
+  @Attribute(DataTypes.STRING)
+  declare passwordHash: CreationOptional<string | null>
 }
