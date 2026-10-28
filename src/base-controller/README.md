@@ -6,7 +6,7 @@
 router.route("/api/users").get(UsersController.index).post(UsersController.create)
 ```
 
-`UsersController.index` is still a normal Express handler. The static getter builds a controller instance and calls `#index()`. Use policies, services, and serializers as needed; installing error middleware does not require moving existing routes or adopting those controller conventions.
+`UsersController.index` is still a normal Express handler. The static getter builds a controller instance, awaits `#beforeAction()`, then calls `#index()` unless preparation already sent a response. Use policies, services, and serializers as needed; installing error middleware does not require moving existing routes or adopting those controller conventions.
 
 ## Host application controllers
 
@@ -38,8 +38,73 @@ class UsersController extends ApplicationController<User> {
 ```
 
 A host whose middleware sets `request.user` can expose `user` instead; do not rename or copy host
-identity fields to fit the package. The application base is a thin accessor, not authentication,
-authorization, error formatting, or response-message behavior.
+identity fields to fit the package. Authentication, authorization, error formatting, and response
+messages remain host-owned.
+
+## Before actions
+
+Override `protected beforeAction(): void | Promise<void>` for shared request preparation. Every
+standard controller action runs it on that request's controller instance. Asynchronous work is
+awaited before the action; throwing or rejecting forwards the error to Express and skips the action.
+A hook that sends a response or redirects also skips the action.
+
+For authentication, normal middleware can verify the token and establish trusted claims while the
+application controller resolves its local user. For example, a host with an `authSubject` user
+column and verified `request.auth.payload.sub` claims can define:
+
+```ts
+import type { Request } from "express"
+import type { Model } from "@sequelize/core"
+import { BaseApiError, BaseController } from "express-light-rail"
+
+import { User } from "@/models/index.js"
+
+type VerifiedRequest = Request & {
+  auth?: {
+    payload: {
+      sub?: string
+    }
+  }
+}
+
+abstract class ApplicationController<TModel extends Model = never> extends BaseController<
+  TModel,
+  VerifiedRequest
+> {
+  private authenticatedUser?: User
+
+  protected override async beforeAction(): Promise<void> {
+    const subject = this.request.auth?.payload.sub
+    if (!subject) {
+      throw new BaseApiError("unauthorized", "Authentication required", {}, 401)
+    }
+
+    const user = await User.findOne({
+      where: {
+        authSubject: subject,
+      },
+    })
+    if (!user) {
+      throw new BaseApiError("forbidden", "Account is not provisioned", {}, 403)
+    }
+
+    this.authenticatedUser = user
+  }
+
+  protected get currentUser(): User {
+    if (!this.authenticatedUser) {
+      throw new Error("Current user has not been loaded")
+    }
+
+    return this.authenticatedUser
+  }
+}
+```
+
+The hook does not verify JWTs, select an identity field, or create accounts for you. Keep token
+verification in host middleware and concrete resource permissions in policies. Resource controllers
+normally inherit the application hook unchanged. If a subclass adds preparation, call and await
+`super.beforeAction()` before its own work. There is no callback registry or `only`/`except` DSL.
 
 ## Request cancellation
 
