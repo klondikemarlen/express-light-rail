@@ -8,7 +8,7 @@ const { originalStorage } = vi.hoisted(() => {
   }
 })
 
-import { db, Thread, User } from "@example-app/models/index.js"
+import { db, Comment, Thread, User } from "@example-app/models/index.js"
 
 import { threadFactory } from "@tests/example-app/factories/thread-factory.js"
 import { userFactory } from "@tests/example-app/factories/user-factory.js"
@@ -97,6 +97,28 @@ describe("environment-specific seeds", () => {
         body: "Keep this content on restart.",
       },
     ])
+  })
+
+  test("when the final development seed fails, rolls back earlier records", async () => {
+    // Arrange
+    const seedFailure = new Error("Could not create the seed comment")
+    const removeFailureHook = Comment.hooks.addListener("beforeCreate", () => {
+      throw seedFailure
+    })
+
+    try {
+      // Act
+      await expect(runSeeds("development")).rejects.toThrow(seedFailure)
+
+      // Assert
+      const users = await User.findAll()
+      expect(users).toEqual([])
+
+      const threads = await Thread.findAll()
+      expect(threads).toEqual([])
+    } finally {
+      removeFailureHook()
+    }
   })
 
   test("when production is selected, does not create demo accounts", async () => {
