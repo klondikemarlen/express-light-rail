@@ -294,26 +294,22 @@ await SendWelcomeEmailJob.queueAs("slow-mailers").performLater(1)
 
 ## Development
 
-### Without Docker
-
-Use the project-local Node.js version selected by `.tool-versions`; run `asdf install nodejs` if it is not installed. No shell-level `ASDF_NODEJS_VERSION` override is needed.
+Use Docker Compose through `bin/dev`, as in the host applications. Install Docker with Compose and the Ruby version in `.tool-versions`, then run:
 
 ```bash
-npm install
-npm run check-types
-npm run test -- --run
-npm run build
-npm pack --dry-run
+bin/dev build app
+bin/dev up -d app
+bin/dev logs app
+bin/dev test -- --run
+bin/dev check-types
+bin/dev npm run lint
+bin/dev npm run build
+bin/dev npm pack --dry-run --json
 ```
 
-### With Docker
+The example uses SQL Server, with separate development and test databases. Compose waits for database health before starting application commands. The application watches source changes and rebuilds automatically. `bin/dev npm ci` refreshes the container dependency volume after dependency changes.
 
-This repo still has the local `bin/dev` wrapper, but Docker is optional for package work.
-
-1. Set up `asdf` and install `ruby`.
-2. Set up `direnv` with an `.envrc` containing `PATH_add bin`.
-3. Build with `dev build`.
-4. Test with `dev test`.
+Use `API_PORT=3352 bin/dev up -d app` to change the host HTTP port. Set a unique `COMPOSE_PROJECT_NAME` for an isolated checkout; its containers, dependencies, and database volume remain separate from other projects. `bin/dev down` stops the project without deleting database data. Do not use another application's database for these tests.
 
 ## Publishing
 

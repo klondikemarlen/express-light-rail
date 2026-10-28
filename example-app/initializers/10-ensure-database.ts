@@ -1,26 +1,19 @@
-import { mkdir } from "node:fs/promises"
-import { dirname, resolve } from "node:path"
-
-import { DataTypes } from "@sequelize/core"
-
-import { DATABASE_STORAGE } from "@example-app/config.js"
-import { db } from "@example-app/models/index.js"
+import { DATABASE_NAME } from "@example-app/config.js"
+import { createMigrationClient } from "@example-app/db/migration-client.js"
 
 export async function ensureDatabase(): Promise<void> {
-  if (DATABASE_STORAGE !== ":memory:") {
-    await mkdir(dirname(resolve(DATABASE_STORAGE)), {
-      recursive: true,
-    })
-  }
+  const migrationClient = createMigrationClient("master")
 
-  await db.sync()
+  try {
+    const databases = await migrationClient.raw<Array<{ name: string }>>(
+      "SELECT name FROM sys.databases WHERE name = ?",
+      [DATABASE_NAME]
+    )
+    if (databases.length > 0) return
 
-  const queryInterface = db.queryInterface
-  const usersColumns = await queryInterface.describeTable("users")
-  if (!("passwordHash" in usersColumns)) {
-    await queryInterface.addColumn("users", "passwordHash", {
-      type: DataTypes.STRING,
-      allowNull: true,
-    })
+    const quotedDatabaseName = `[${DATABASE_NAME.replace(/]/g, "]]")}]`
+    await migrationClient.raw(`CREATE DATABASE ${quotedDatabaseName}`)
+  } finally {
+    await migrationClient.destroy()
   }
 }

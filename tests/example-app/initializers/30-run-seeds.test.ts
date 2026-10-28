@@ -1,31 +1,18 @@
-import { afterAll, beforeEach, describe, expect, test, vi } from "vitest"
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest"
 
-const { originalStorage } = vi.hoisted(() => {
-  const originalStorage = process.env.EXAMPLE_DATABASE_STORAGE
-  process.env.EXAMPLE_DATABASE_STORAGE = ":memory:"
-  return {
-    originalStorage,
-  }
-})
-
-import { db, Thread, User } from "@example-app/models/index.js"
+import { db, Comment, Thread, User } from "@example-app/models/index.js"
 
 import { threadFactory } from "@tests/example-app/factories/thread-factory.js"
 import { userFactory } from "@tests/example-app/factories/user-factory.js"
+import { cleanExampleDatabase, prepareExampleDatabase } from "@tests/support/example-database.js"
 
 import { runSeeds } from "@example-app/initializers/30-run-seeds.js"
 
-beforeEach(async () => {
-  await db.sync({ force: true })
-})
+beforeAll(prepareExampleDatabase)
+beforeEach(cleanExampleDatabase)
 
 afterAll(async () => {
   await db.close()
-  if (originalStorage === undefined) {
-    delete process.env.EXAMPLE_DATABASE_STORAGE
-  } else {
-    process.env.EXAMPLE_DATABASE_STORAGE = originalStorage
-  }
 })
 
 describe("environment-specific seeds", () => {
@@ -97,6 +84,28 @@ describe("environment-specific seeds", () => {
         body: "Keep this content on restart.",
       },
     ])
+  })
+
+  test("when the final development seed fails, rolls back earlier records", async () => {
+    // Arrange
+    const seedFailure = new Error("Could not create the seed comment")
+    const removeFailureHook = Comment.hooks.addListener("beforeCreate", () => {
+      throw seedFailure
+    })
+
+    try {
+      // Act
+      await expect(runSeeds("development")).rejects.toThrow(seedFailure)
+
+      // Assert
+      const users = await User.findAll()
+      expect(users).toEqual([])
+
+      const threads = await Thread.findAll()
+      expect(threads).toEqual([])
+    } finally {
+      removeFailureHook()
+    }
   })
 
   test("when production is selected, does not create demo accounts", async () => {

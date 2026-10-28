@@ -1,11 +1,11 @@
-FROM node:22.13.0-alpine3.21
+FROM node:24.15.0-alpine3.23
 
 WORKDIR /usr/src/app
 
 COPY package*.json ./
+RUN npm ci
+RUN apk add --no-cache bash
 
-RUN npm install
+COPY . .
 
-COPY ./src ./src
-
-CMD ["npm run start"]
+CMD ["npm", "run", "example:dev"]

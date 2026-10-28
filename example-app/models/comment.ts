@@ -50,7 +50,8 @@ export class Comment extends Model<InferAttributes<Comment>, InferCreationAttrib
   @BelongsTo(() => User, {
     foreignKey: {
       name: "authorId",
-      onDelete: "RESTRICT",
+      onDelete: "NO ACTION",
+      onUpdate: "NO ACTION",
     },
     inverse: {
       type: "hasMany",
@@ -63,6 +64,7 @@ export class Comment extends Model<InferAttributes<Comment>, InferCreationAttrib
     foreignKey: {
       name: "threadId",
       onDelete: "CASCADE",
+      onUpdate: "NO ACTION",
     },
     inverse: {
       type: "hasMany",

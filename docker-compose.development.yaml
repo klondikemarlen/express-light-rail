@@ -1,50 +1,77 @@
 x-default-environment: &default-environment
-  TZ: "UTC"
+  TZ: UTC
   NODE_ENV: development
+  DB_HOST: db
+  DB_PORT: 1433
+  DB_NAME: express_light_rail_development
+  DB_USER: sa
+  DB_PASS: &database-password DevPwd99!
+  EXAMPLE_JWT_SECRET: "${EXAMPLE_JWT_SECRET:-}"
 
 services:
   app:
     build:
       context: .
       dockerfile: development.Dockerfile
-    image: express-light-rail:latest
-    env_file:
-      - ./.env.development
+    image: "${COMPOSE_PROJECT_NAME:-express-light-rail}-app"
+    init: true
+    command: npm run example:dev
     environment:
       <<: *default-environment
-    tty: true # allows attaching debugger, equivalent of docker exec -t
-    # stdin_open: true # equivalent of docker exec -i
     ports:
-      - "3000:3000"
-      - "9229:9229"
+      - "${API_PORT:-3000}:3000"
     volumes:
       - ./:/usr/src/app
-      - ./.gitignore:/usr/src/.gitignore
-      - ./.prettierrc.yaml:/usr/src/.prettierrc.yaml
+      - node_modules:/usr/src/app/node_modules
+    depends_on:
+      db:
+        condition: service_healthy
 
   test_app:
     build:
       context: .
       dockerfile: development.Dockerfile
+    image: "${COMPOSE_PROJECT_NAME:-express-light-rail}-app"
+    init: true
     command: /bin/true
-    env_file:
-      - ./.env.development
     environment:
       <<: *default-environment
       NODE_ENV: test
-      DEFAULT_LOG_LEVEL: "info"
-    tty: true
+      DB_NAME: express_light_rail_test
+      EXAMPLE_LOG_LEVEL: error
     volumes:
       - ./:/usr/src/app
-      - ./.gitignore:/usr/src/.gitignore
-      - ./.prettierrc.yaml:/usr/src/.prettierrc.yaml
+      - node_modules:/usr/src/app/node_modules
+    depends_on:
+      db:
+        condition: service_healthy
 
-  # For easily generating large PlantUML diagrams
-  # Not relevant to production environment.
-  # Accessible at http://localhost:9999
+  db:
+    image: mcr.microsoft.com/mssql/server:2025-CU7-ubuntu-24.04
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: *database-password
+    volumes:
+      - db_data:/var/opt/mssql
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          '/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$$MSSQL_SA_PASSWORD" -C -Q "SELECT 1" -b -o /dev/null',
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+
+  # Optional diagram rendering, as in the host applications.
   plantuml:
     image: plantuml/plantuml-server:jetty
     ports:
-      - 9999:8080
+      - "9999:8080"
     environment:
       PLANTUML_LIMIT_SIZE: 8192
+
+volumes:
+  db_data:
+  node_modules:
