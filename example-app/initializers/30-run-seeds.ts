@@ -1,4 +1,4 @@
-import { seedsByEnvironment } from "@example-app/db/seeds/index.js"
+import { seed } from "@example-app/db/seeds/development/001.fill-discussion-board.js"
 
 export async function runSeeds(
   environment: string = process.env.NODE_ENV || "development"
@@ -7,7 +7,7 @@ export async function runSeeds(
     throw new Error(`Unsupported seed environment: ${environment}`)
   }
 
-  for (const seed of seedsByEnvironment[environment]) {
-    await seed()
-  }
+  if (environment !== "development") return
+
+  await seed()
 }
