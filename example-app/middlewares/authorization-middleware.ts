@@ -14,7 +14,7 @@ import { LoadCurrentUserService } from "@example-app/services/users/index.js"
 const signingKey = new TextEncoder().encode(JWT_SECRET)
 
 export async function authorizationMiddleware(
-  request: Request,
+  request: Request & { currentUser?: User },
   _response: Response,
   next: NextFunction
 ): Promise<void> {
@@ -33,8 +33,7 @@ export async function authorizationMiddleware(
       requiredClaims: ["sub", "iat", "exp"],
       maxTokenAge: JWT_EXPIRATION_SECONDS,
     })
-    const authenticatedRequest: Request & { currentUser?: User } = request
-    authenticatedRequest.currentUser = await LoadCurrentUserService.perform(payload.sub)
+    request.currentUser = await LoadCurrentUserService.perform(payload.sub)
     next()
   } catch (error: unknown) {
     if (error instanceof errors.JOSEError) {
