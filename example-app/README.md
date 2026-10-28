@@ -16,7 +16,7 @@ Use the Node.js version in [`.tool-versions`](../.tool-versions); `asdf install 
 
 The API listens at `http://localhost:3000`. To use another port, run `API_PORT=3352 npm run example` and adjust the request URLs below. The command compiles before starting; stop with Ctrl-C and restart after code changes.
 
-SQLite stores data in `.example-app/discussion-board.sqlite`, which is ignored by Git. Startup creates the schema and seeds a fresh database with Alice, Bob, one welcome thread, and Bob's comment. Restarting does not reset existing records. To explore a separate empty database, choose a new path:
+SQLite stores data in `.example-app/discussion-board.sqlite`, which is ignored by Git. Startup runs the ordered [initializers](initializers/): ensure the database, then select seeds for `NODE_ENV` (default `development`). Development seeds a fresh database with Alice, Bob, one welcome thread, and Bob's comment. Production and test have empty seed lists; they never create demo accounts. Restarting does not reset existing records. To explore a separate empty database, choose a new path:
 
 ```sh
 EXAMPLE_DATABASE_STORAGE=/tmp/my-discussion-board.sqlite npm run example
@@ -158,17 +158,19 @@ Both return HTTP 204 with no body. A subsequent GET returns 404. If a thread sti
 
 ## Follow the application structure
 
-| Location                                              | Responsibility                                                                                |
-| ----------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| [`app.ts`](app.ts)                                    | Compose JSON parsing, API routing, not-found handling, and error handling in separate groups. |
-| [`server.ts`](server.ts)                              | Initialize and seed the database, then start HTTP.                                            |
-| [`database.ts`](database.ts) and [`models/`](models/) | Configure SQLite and define real Sequelize models and relationships.                          |
-| [`seed.ts`](seed.ts)                                  | Seed only a fresh database; preserve existing data on restart.                                |
-| [`router.ts`](router.ts)                              | Resolve the demo current user and bind Express-native resource routes.                        |
-| [`controllers/`](controllers/)                        | Orchestrate reads, authorization, services, serialization, and HTTP responses.                |
-| [`policies/`](policies/)                              | Own author permissions and attribute allow-lists.                                             |
-| [`services/`](services/)                              | Own thread/comment creation and updates with their validated inputs.                          |
-| [`serializers/`](serializers/)                        | Select explicit response fields instead of returning raw model objects.                       |
+| Location                                                                                | Responsibility                                                                                                           |
+| --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| [`app.ts`](app.ts)                                                                      | Compose parsing, security, API routing, frontend hosting, and error handling.                                            |
+| [`server.ts`](server.ts)                                                                | Run application initialization, then start HTTP.                                                                         |
+| [`db/db-client.ts`](db/db-client.ts)                                                    | Configure the single SQLite client without importing models.                                                             |
+| [`models/`](models/)                                                                    | Declare attributes, validation, and relationships with Sequelize decorators; register models once in `models/index.ts`.  |
+| [`initializers/`](initializers/)                                                        | Ensure the database before running environment-specific seeds.                                                           |
+| [`db/seeds/`](db/seeds/)                                                                | Select ordered seed lists by environment; development owns the fresh discussion-board data.                              |
+| [`router.ts`](router.ts)                                                                | Bind Express-native resource routes.                                                                                     |
+| [`controllers/`](controllers/)                                                          | Authenticate in the application base; orchestrate resource reads, authorization, services, serialization, and responses. |
+| [`policies/`](policies/)                                                                | Own author permissions and attribute allow-lists.                                                                        |
+| [`services/threads/`](services/threads/) and [`services/comments/`](services/comments/) | Group each resource's `CreateService` and `UpdateService`, exported as `Threads` and `Comments`.                         |
+| [`serializers/`](serializers/)                                                          | Select explicit response fields instead of returning raw model objects.                                                  |
 
 ### Inherit the framework; configure the application once
 
@@ -181,6 +183,12 @@ The inheritance paths are `BaseController → ApplicationController → ThreadsC
 ### Keep request flow visible
 
 Routes stay normal Express resource declarations. Controllers perform ordinary model reads directly, authorize mutations, pass policy-selected attributes to services, and serialize the result. Services extend `BaseService` and use `.perform(...)`; serializers extend `BaseSerializer` and use the same call style. Model validation rejects missing or blank required text, while the API error handler translates validation failures into safe HTTP 400 responses.
+
+Services follow WRAP's resource namespaces rather than repeating the resource in every filename: controllers import `{ Threads }` from `@example-app/services/index.js` and call `Threads.CreateService.perform(...)` or `Threads.UpdateService.perform(...)`. Comments use the equivalent `Comments` namespace. Each resource's `index.ts` re-exports its concrete services; the top-level service barrel exports the resource namespaces.
+
+Models do not call `Model.init` or import the database client. Attribute and association decorators live with the owning class; `models/index.ts` calls `db.addModels(...)` once. The example keeps its existing SQLite table/column names and omits timestamps. Schema synchronization remains local-example setup, not WRAP's production migration system.
+
+[`db/seeds/index.ts`](db/seeds/index.ts) lists seeds in execution order for each environment. Add development datasets under `db/seeds/development/`; production/test lists are deliberately empty. The [seed initializer](initializers/30-run-seeds.ts) rejects unknown environments rather than falling back to demo data. Existing databases with users are left untouched.
 
 Authorized delete actions call the model's `destroy()` method directly. The model relationship owns comment cascading; a separate service is unnecessary for that single operation.
 
