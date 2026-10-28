@@ -9,9 +9,10 @@ export type ThreadAsShow = {
   authorId: number
 }
 
-export class ThreadSerializer extends BaseSerializer<Thread, ThreadAsShow> {
+export class ShowSerializer extends BaseSerializer<Thread, ThreadAsShow> {
   perform(): ThreadAsShow {
     const { id, title, body, authorId } = this.record
+
     return {
       id,
       title,

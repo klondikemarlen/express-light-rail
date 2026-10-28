@@ -8,9 +8,10 @@ export type UserAsShow = {
   name: string
 }
 
-export class UserSerializer extends BaseSerializer<User, UserAsShow> {
+export class ShowSerializer extends BaseSerializer<User, UserAsShow> {
   perform(): UserAsShow {
     const { id, username, name } = this.record
+
     return {
       id,
       username,

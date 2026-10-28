@@ -1,40 +1,52 @@
+import isNil from "lodash/isNil.js"
 import { BaseApiError } from "express-light-rail"
 
-import { ApplicationController } from "@example-app/controllers/application-controller.js"
 import { User } from "@example-app/models/index.js"
-import { UserSerializer } from "@example-app/serializers/user-serializer.js"
+import { UsersPolicy } from "@example-app/policies/index.js"
+import { ShowSerializer } from "@example-app/serializers/users/index.js"
+
+import { ApplicationController } from "@example-app/controllers/application-controller.js"
 
 export class UsersController extends ApplicationController<User> {
-  async index(): Promise<void> {
+  async index() {
     const users = await User.findAll({
       limit: this.pagination.limit,
       offset: this.pagination.offset,
       order: [["id", "ASC"]],
     })
-    this.response.json({
-      users: UserSerializer.perform(users),
+    const serializedUsers = ShowSerializer.perform(users)
+    return this.response.json({
+      users: serializedUsers,
     })
   }
 
-  async show(): Promise<void> {
-    const userId = this.recordId(this.params.userId)
-    const user = await User.findByPk(userId)
-    if (!user) throw this.notFound()
+  async show() {
+    const user = await this.loadUser()
+    if (isNil(user)) {
+      throw new BaseApiError("not_found", "User not found", {}, 404)
+    }
 
-    this.response.json({
-      user: UserSerializer.perform(user),
+    const policy = this.buildPolicy(user)
+    if (!policy.show()) {
+      throw new BaseApiError("forbidden", "Forbidden", {}, 403)
+    }
+
+    const serializedUser = ShowSerializer.perform(user)
+    return this.response.json({
+      user: serializedUser,
     })
   }
 
-  private recordId(value: string | undefined): number {
-    if (!value || !/^[1-9]\d*$/.test(value)) throw this.notFound()
+  private loadUser() {
+    const userId = Number(this.params.userId)
+    if (!Number.isSafeInteger(userId) || userId < 1 || String(userId) !== this.params.userId) {
+      return null
+    }
 
-    const id = Number(value)
-    if (!Number.isSafeInteger(id)) throw this.notFound()
-    return id
+    return User.findByPk(userId)
   }
 
-  private notFound(): BaseApiError {
-    return new BaseApiError("not_found", "User not found", {}, 404)
+  private buildPolicy(user: User = User.build()) {
+    return new UsersPolicy(this.currentUser, user)
   }
 }

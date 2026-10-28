@@ -1,2 +1,2 @@
-export { CreateService } from "./create-service.js"
-export { UpdateService } from "./update-service.js"
+export { CreateService, type ThreadCreationAttributes } from "./create-service.js"
+export { UpdateService, type ThreadUpdateAttributes } from "./update-service.js"

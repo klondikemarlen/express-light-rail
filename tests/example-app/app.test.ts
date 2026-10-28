@@ -189,6 +189,65 @@ describe("discussion board", () => {
     })
   })
 
+  test("when a thread identifier is malformed, returns a public not-found error", async () => {
+    // Arrange
+    const reader = await userFactory.create()
+    const route = request(app).get("/api/threads/not-an-id").set("x-user-id", reader.username)
+
+    // Act
+    const response = await route
+
+    // Assert
+    expect(response.status).toBe(404)
+    expect(response.body).toEqual({
+      error: {
+        code: "not_found",
+        msg: "Thread not found",
+        meta: {},
+      },
+    })
+  })
+
+  test("when a user identifier is malformed, returns a public not-found error", async () => {
+    // Arrange
+    const reader = await userFactory.create()
+    const route = request(app).get("/api/users/not-an-id").set("x-user-id", reader.username)
+
+    // Act
+    const response = await route
+
+    // Assert
+    expect(response.status).toBe(404)
+    expect(response.body).toEqual({
+      error: {
+        code: "not_found",
+        msg: "User not found",
+        meta: {},
+      },
+    })
+  })
+
+  test("when a nested comment identifier is malformed, returns a public not-found error", async () => {
+    // Arrange
+    const reader = await userFactory.create()
+    const route = request(app)
+      .get("/api/threads/1/comments/not-an-id")
+      .set("x-user-id", reader.username)
+
+    // Act
+    const response = await route
+
+    // Assert
+    expect(response.status).toBe(404)
+    expect(response.body).toEqual({
+      error: {
+        code: "not_found",
+        msg: "Comment not found",
+        meta: {},
+      },
+    })
+  })
+
   test("when a user creates a comment, assigns the current user and URL parent", async () => {
     // Arrange
     const author = await userFactory.create({

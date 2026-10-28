@@ -9,9 +9,10 @@ export type CommentAsShow = {
   threadId: number
 }
 
-export class CommentSerializer extends BaseSerializer<Comment, CommentAsShow> {
+export class ShowSerializer extends BaseSerializer<Comment, CommentAsShow> {
   perform(): CommentAsShow {
     const { id, body, authorId, threadId } = this.record
+
     return {
       id,
       body,

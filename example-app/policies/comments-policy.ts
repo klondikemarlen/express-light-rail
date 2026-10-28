@@ -1,8 +1,14 @@
-import type { Comment } from "@example-app/models/comment.js"
+import type { Path } from "express-light-rail"
+
+import type { Comment } from "@example-app/models/index.js"
 
 import { ApplicationPolicy } from "@example-app/policies/application-policy.js"
 
-export class CommentPolicy extends ApplicationPolicy<Comment> {
+export class CommentsPolicy extends ApplicationPolicy<Comment> {
+  override create(): boolean {
+    return true
+  }
+
   override update(): boolean {
     return this.user.id === this.record.authorId
   }
@@ -11,7 +17,7 @@ export class CommentPolicy extends ApplicationPolicy<Comment> {
     return this.user.id === this.record.authorId
   }
 
-  override permittedAttributes(): string[] {
+  override permittedAttributes(): Path[] {
     return ["body"]
   }
 }
