@@ -20,10 +20,13 @@ export async function authorizationMiddleware(
 ): Promise<void> {
   try {
     const authorization = request.get("authorization")
-    const bearer = authorization?.match(/^Bearer ([^\s]+)$/i)
+    if (!authorization) throw new BaseApiError("unauthorized", "Authentication required", {}, 401)
+
+    const bearer = authorization.match(/^Bearer ([^\s]+)$/i)
     if (!bearer) throw new BaseApiError("unauthorized", "Authentication required", {}, 401)
 
-    const { payload } = await jwtVerify(bearer[1], signingKey, {
+    const accessToken = bearer[1]
+    const { payload } = await jwtVerify(accessToken, signingKey, {
       algorithms: ["HS256"],
       issuer: JWT_ISSUER,
       audience: JWT_AUDIENCE,
