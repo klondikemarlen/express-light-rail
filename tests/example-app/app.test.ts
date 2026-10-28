@@ -7,8 +7,7 @@ const { originalStorage } = vi.hoisted(() => {
   return { originalStorage }
 })
 
-import { sequelize } from "@example-app/database.js"
-import { Comment } from "@example-app/models/index.js"
+import { db, Comment } from "@example-app/models/index.js"
 
 import { commentFactory } from "@tests/example-app/factories/comment-factory.js"
 import { threadFactory } from "@tests/example-app/factories/thread-factory.js"
@@ -17,11 +16,11 @@ import { userFactory } from "@tests/example-app/factories/user-factory.js"
 import { app } from "@example-app/app.js"
 
 beforeEach(async () => {
-  await sequelize.sync({ force: true })
+  await db.sync({ force: true })
 })
 
 afterAll(async () => {
-  await sequelize.close()
+  await db.close()
   if (originalStorage === undefined) {
     delete process.env.EXAMPLE_DATABASE_STORAGE
   } else {

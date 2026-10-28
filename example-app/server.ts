@@ -1,13 +1,11 @@
 import { app } from "@example-app/app.js"
 import { configuration } from "@example-app/configuration.js"
-import { sequelize } from "@example-app/database.js"
 import { logger } from "@example-app/logger.js"
-import { initializeDatabase } from "@example-app/models/index.js"
-import { seedDatabase } from "@example-app/seed.js"
+import { initializeApplication } from "@example-app/initializers/index.js"
+import { db } from "@example-app/models/index.js"
 
 async function start(): Promise<void> {
-  await initializeDatabase()
-  await seedDatabase()
+  await initializeApplication()
 
   const port = Number(process.env.API_PORT ?? 3000)
   const server = app.listen(port, () => {
@@ -19,7 +17,7 @@ async function start(): Promise<void> {
 
   function stop(): void {
     server.close(() => {
-      void sequelize.close()
+      void db.close()
     })
   }
 
@@ -31,6 +29,6 @@ start().catch(async (error: unknown) => {
   logger.error("Could not start the discussion board", {
     error,
   })
-  await sequelize.close()
+  await db.close()
   process.exitCode = 1
 })

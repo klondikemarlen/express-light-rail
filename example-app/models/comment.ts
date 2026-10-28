@@ -1,64 +1,73 @@
 import {
-  CreationOptional,
+  type CreationOptional,
   DataTypes,
-  InferAttributes,
-  InferCreationAttributes,
+  type InferAttributes,
+  type InferCreationAttributes,
   Model,
   type NonAttribute,
 } from "@sequelize/core"
+import {
+  Attribute,
+  AutoIncrement,
+  BelongsTo,
+  NotNull,
+  PrimaryKey,
+  Table,
+  ValidateAttribute,
+} from "@sequelize/core/decorators-legacy"
 
-import { sequelize } from "@example-app/database.js"
 import { Thread } from "@example-app/models/thread.js"
 import { User } from "@example-app/models/user.js"
 
+@Table({
+  tableName: "comments",
+})
 export class Comment extends Model<InferAttributes<Comment>, InferCreationAttributes<Comment>> {
+  @Attribute(DataTypes.INTEGER)
+  @PrimaryKey
+  @AutoIncrement
   declare id: CreationOptional<number>
+
+  @Attribute(DataTypes.TEXT)
+  @NotNull
+  @ValidateAttribute({
+    notBlank(value: string) {
+      if (value.trim() === "") {
+        throw new Error("body must not be blank")
+      }
+    },
+  })
   declare body: string
+
+  @Attribute(DataTypes.INTEGER)
+  @NotNull
   declare authorId: number
+
+  @Attribute(DataTypes.INTEGER)
+  @NotNull
   declare threadId: number
 
+  @BelongsTo(() => User, {
+    foreignKey: {
+      name: "authorId",
+      onDelete: "RESTRICT",
+    },
+    inverse: {
+      type: "hasMany",
+      as: "comments",
+    },
+  })
   declare author?: NonAttribute<User>
+
+  @BelongsTo(() => Thread, {
+    foreignKey: {
+      name: "threadId",
+      onDelete: "CASCADE",
+    },
+    inverse: {
+      type: "hasMany",
+      as: "comments",
+    },
+  })
   declare thread?: NonAttribute<Thread>
 }
-
-Comment.init(
-  {
-    id: {
-      type: DataTypes.INTEGER,
-      primaryKey: true,
-      autoIncrement: true,
-    },
-    body: {
-      type: DataTypes.TEXT,
-      allowNull: false,
-      validate: {
-        notBlank(value: string) {
-          if (value.trim() === "") {
-            throw new Error("body must not be blank")
-          }
-        },
-      },
-    },
-    authorId: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
-      references: {
-        model: User,
-        key: "id",
-      },
-    },
-    threadId: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
-      references: {
-        model: Thread,
-        key: "id",
-      },
-    },
-  },
-  {
-    sequelize,
-    tableName: "comments",
-    timestamps: false,
-  }
-)

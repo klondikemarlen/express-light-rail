@@ -1,8 +1,7 @@
-import { sequelize } from "@example-app/database.js"
-import { Comment, Thread, User } from "@example-app/models/index.js"
+import { db, Comment, Thread, User } from "@example-app/models/index.js"
 
-export async function seedDatabase(): Promise<void> {
-  await sequelize.transaction(async (transaction) => {
+export async function seed(): Promise<void> {
+  await db.transaction(async (transaction) => {
     const userCount = await User.count({
       transaction,
     })

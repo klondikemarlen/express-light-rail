@@ -79,7 +79,7 @@ beforeAll(async () => {
   })
 
   // Load the application after binding the test issuer: configuration is captured at module startup.
-  database = (await import("@example-app/database.js")).sequelize
+  database = (await import("@example-app/models/index.js")).db
   userFactory = (await import("@tests/example-app/factories/user-factory.js")).userFactory
   application = (await import("@example-app/app.js")).app
 })
