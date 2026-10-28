@@ -22,7 +22,29 @@ SQLite stores data in `.example-app/discussion-board.sqlite`, which is ignored b
 EXAMPLE_DATABASE_STORAGE=/tmp/my-discussion-board.sqlite npm run example
 ```
 
-No Redis, external account, environment file, or database container is required. Schema synchronization is convenient for this local example; production applications should own migrations, backups, configuration, and deployment.
+No Redis, external account, environment file, or database container is required for local demo mode. Schema synchronization is convenient for this example; production applications should own migrations, backups, configuration, and deployment.
+
+## Application boundary and authentication
+
+The framework runtime remains minimal. This example owns its Helmet security headers, credentialed CORS policy, bounded query/JSON/URL-encoded/multipart parsing, completion logging, authentication, status endpoint, and frontend hosting.
+
+`ApplicationController` authenticates before dispatching resource actions. Demo mode resolves `x-user-id` to a local user; resource policies still decide which mutations that user may perform. The package supplies request cancellation after controller dispatch; authentication and database-driver cancellation remain separate concerns.
+
+For verified bearer tokens, configure:
+
+```sh
+EXAMPLE_AUTH_MODE=auth0 \
+AUTH0_ISSUER_BASE_URL=https://your-tenant.auth0.com/ \
+AUTH0_AUDIENCE=your-api-audience \
+AUTH0_SUBJECT_USERS='{"auth0|your-subject":"alice"}' \
+npm run example
+```
+
+Send `Authorization: Bearer <access-token>`. The SDK verifies RS256 signatures, issuer, audience, and expiry through discovery/JWKS. Only explicitly mapped subjects with existing local users are accepted. This example does not provision accounts or trust `x-user-id` in Auth0 mode. Query-string tokens are not accepted. Forms may supply `HOISTABLE_AUTHORIZATION_TOKEN`; it is removed before attribute filtering and never replaces an existing authorization header.
+
+Production defaults to Auth0 and rejects demo mode. Production issuers require HTTPS; non-production permits localhost HTTP for disposable identity-provider QA. `FRONTEND_URL` selects the allowed CORS origin (default `http://localhost:3000`). Request logs exclude query strings, headers, and bodies.
+
+`GET /_status` is public. `/api` misses remain JSON 404 responses and never become frontend pages. `EXAMPLE_WEB_DIRECTORY` selects the static directory (default `example-app/web`): production serves the index for extensionless HTML GET routes, while development serves a 404 page. Missing assets remain 404s. Multipart requests accept bounded text fields, not files. These are example-owned application choices, not framework requirements.
 
 ## Meet the users and models
 
