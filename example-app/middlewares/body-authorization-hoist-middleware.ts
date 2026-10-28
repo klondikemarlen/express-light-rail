@@ -1,11 +1,18 @@
-import type { RequestHandler } from "express"
+import type { NextFunction, Request, Response } from "express"
 
 const hoistableAuthorizationToken = "HOISTABLE_AUTHORIZATION_TOKEN"
 
-export const hoistAuthorizationToken: RequestHandler = (request, _response, next) => {
+export function bodyAuthorizationHoistMiddleware(
+  request: Request,
+  _response: Response,
+  next: NextFunction
+): void {
   const body: unknown = request.body
   if (body !== null && typeof body === "object" && !Array.isArray(body)) {
-    const hasBodyCredential = Object.prototype.hasOwnProperty.call(body, hoistableAuthorizationToken)
+    const hasBodyCredential = Object.prototype.hasOwnProperty.call(
+      body,
+      hoistableAuthorizationToken
+    )
     const credential: unknown = hasBodyCredential
       ? Reflect.get(body, hoistableAuthorizationToken)
       : undefined

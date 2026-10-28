@@ -1,15 +1,12 @@
-import { resolve } from "node:path"
-
 import { Sequelize } from "@sequelize/core"
 import { SqliteDialect } from "@sequelize/sqlite3"
 
-export const databaseStorage =
-  process.env.EXAMPLE_DATABASE_STORAGE || resolve(".example-app/discussion-board.sqlite")
+import { DATABASE_STORAGE } from "@example-app/config.js"
 
 export const db = new Sequelize({
   dialect: SqliteDialect,
 
-  storage: databaseStorage,
+  storage: DATABASE_STORAGE,
 
   logging: false,
 

@@ -6,24 +6,22 @@ import express from "express"
 import helmet from "helmet"
 import { BaseApiError, createApiErrorHandler, createApiNotFoundHandler } from "express-light-rail"
 
-import { configuration } from "@example-app/configuration.js"
-import { StatusController } from "@example-app/controllers/status-controller.js"
-import { hoistAuthorizationToken } from "@example-app/middlewares/hoist-authorization-token.js"
-import { requestCompletionLogger } from "@example-app/middlewares/request-completion-logger.js"
+import { FRONTEND_ORIGIN, IS_PRODUCTION, WEB_DIRECTORY } from "@example-app/config.js"
 import {
   jsonBodyParser,
   normalizeFormBody,
   parseBoundedQuery,
   parseMultipartBody,
+  requestLoggerMiddleware,
   urlEncodedBodyParser,
-} from "@example-app/middlewares/request-parsers.js"
+} from "@example-app/middlewares/index.js"
 import { router } from "@example-app/router.js"
 
 export const app = express()
 
 app.set("query parser", parseBoundedQuery)
 
-app.use(requestCompletionLogger)
+app.use(requestLoggerMiddleware)
 
 app.use(
   helmet({
@@ -45,12 +43,10 @@ app.use(
 
 app.use(
   cors({
-    origin: configuration.frontendOrigin,
+    origin: FRONTEND_ORIGIN,
     credentials: true,
   })
 )
-
-app.get("/_status", StatusController.index)
 
 app.use("/api", jsonBodyParser)
 app.use("/api", urlEncodedBodyParser)
@@ -67,8 +63,7 @@ app.use("/api", (request, _response, next) => {
   next()
 })
 
-app.use("/api", hoistAuthorizationToken)
-app.use("/api", router)
+app.use(router)
 
 app.use("/api", createApiNotFoundHandler())
 
@@ -95,21 +90,21 @@ app.use(
   })
 )
 
-app.use(express.static(configuration.webDirectory))
+app.use(express.static(WEB_DIRECTORY))
 
 app.use((request, response) => {
   const acceptsHtml = request.accepts("html") !== false
   const isBrowserRoute = request.method === "GET" && acceptsHtml && extname(request.path) === ""
 
-  if (configuration.production && isBrowserRoute) {
-    response.sendFile(resolve(configuration.webDirectory, "index.html"), (error) => {
+  if (IS_PRODUCTION && isBrowserRoute) {
+    response.sendFile(resolve(WEB_DIRECTORY, "index.html"), (error) => {
       if (error && !response.headersSent) response.status(404).end()
     })
     return
   }
 
   if (request.method === "GET" && acceptsHtml) {
-    response.status(404).sendFile(resolve(configuration.webDirectory, "404.html"), (error) => {
+    response.status(404).sendFile(resolve(WEB_DIRECTORY, "404.html"), (error) => {
       if (error && !response.headersSent) response.status(404).end()
     })
     return
