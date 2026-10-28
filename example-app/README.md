@@ -202,7 +202,7 @@ The [seed initializer](initializers/30-run-seeds.ts) runs [`db/seeds/development
 
 Authorized delete actions call the model's `destroy()` method directly. The model relationship owns comment cascading; a separate service is unnecessary for that single operation.
 
-Mutation bodies must be JSON objects. Shared API middleware rejects arrays before policy filtering, so malformed attribute shapes return a client error rather than an internal failure.
+Mutation requests accept JSON objects, URL-encoded fields, or multipart text fields. Shared API middleware rejects JSON arrays before policy filtering, so malformed attribute shapes return a client error rather than an internal failure.
 
 The list queries use fixed ordering and bounded pagination, not unrestricted client-supplied Sequelize conditions. Error handling stays Express-native: public `BaseApiError` failures preserve their status and body, while unexpected errors return a generic 500 without internal details.
 
