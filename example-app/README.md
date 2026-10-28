@@ -28,7 +28,7 @@ No Redis, external account, environment file, or database container is required 
 
 The framework runtime remains minimal. This example owns its Helmet security headers, credentialed CORS policy, bounded query/JSON/URL-encoded/multipart parsing, completion logging, authentication, status endpoint, and frontend hosting.
 
-`ApplicationController` authenticates before dispatching resource actions. Demo mode resolves `x-user-id` to a local user; resource policies still decide which mutations that user may perform. The package supplies request cancellation after controller dispatch; authentication and database-driver cancellation remain separate concerns.
+Token verification runs in ordinary [authorization middleware](middlewares/authorization-middleware.ts). [`ApplicationController.beforeAction()`](controllers/application-controller.ts) then resolves the local user before each resource action: demo mode uses `x-user-id`; Auth0 mode uses the verified subject's explicit username mapping. Resource policies decide which mutations that user may perform. The package creates the request cancellation signal before the hook runs; authentication and database-driver cancellation remain separate concerns.
 
 For verified bearer tokens, configure:
 
@@ -44,7 +44,7 @@ Send `Authorization: Bearer <access-token>`. The SDK verifies RS256 signatures, 
 
 Production defaults to Auth0 and rejects demo mode. Production issuers require HTTPS; non-production permits localhost HTTP for disposable identity-provider QA. `FRONTEND_URL` selects the allowed CORS origin (default `http://localhost:3000`). Request logs exclude query strings, headers, and bodies.
 
-`GET /_status` is public. `/api` misses remain JSON 404 responses and never become frontend pages. `EXAMPLE_WEB_DIRECTORY` selects the static directory (default `example-app/web`): production serves the index for extensionless HTML GET routes, while development serves a 404 page. Missing assets remain 404s. Multipart requests accept bounded text fields, not files. These are example-owned application choices, not framework requirements.
+`GET /_status` is public. `/api` misses never become frontend pages: they reach the JSON 404 handler after token middleware, so Auth0 mode still requires a valid bearer token. `EXAMPLE_WEB_DIRECTORY` selects the static directory (default `example-app/web`): production serves the index for extensionless HTML GET routes, while development serves a 404 page. Missing assets remain 404s. Multipart requests accept bounded text fields, not files. These are example-owned application choices, not framework requirements.
 
 ## Meet the users and models
 
@@ -158,25 +158,25 @@ Both return HTTP 204 with no body. A subsequent GET returns 404. If a thread sti
 
 ## Follow the application structure
 
-| Location                                                                                | Responsibility                                                                                                           |
-| --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| [`app.ts`](app.ts)                                                                      | Compose parsing, security, API routing, frontend hosting, and error handling.                                            |
-| [`server.ts`](server.ts)                                                                | Run application initialization, then start HTTP.                                                                         |
-| [`db/db-client.ts`](db/db-client.ts)                                                    | Configure the single SQLite client without importing models.                                                             |
-| [`models/`](models/)                                                                    | Declare attributes, validation, and relationships with Sequelize decorators; register models once in `models/index.ts`.  |
-| [`initializers/`](initializers/)                                                        | Ensure the database before running environment-specific seeds.                                                           |
-| [`db/seeds/`](db/seeds/)                                                                | Select ordered seed lists by environment; development owns the fresh discussion-board data.                              |
-| [`router.ts`](router.ts)                                                                | Bind Express-native resource routes.                                                                                     |
-| [`controllers/`](controllers/)                                                          | Authenticate in the application base; orchestrate resource reads, authorization, services, serialization, and responses. |
-| [`policies/`](policies/)                                                                | Own author permissions and attribute allow-lists.                                                                        |
-| [`services/threads/`](services/threads/) and [`services/comments/`](services/comments/) | Group each resource's `CreateService` and `UpdateService`, exported as `Threads` and `Comments`.                         |
-| [`serializers/`](serializers/)                                                          | Select explicit response fields instead of returning raw model objects.                                                  |
+| Location                                                                                | Responsibility                                                                                                                                       |
+| --------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`app.ts`](app.ts)                                                                      | Compose parsing, security, API routing, frontend hosting, and error handling.                                                                        |
+| [`server.ts`](server.ts)                                                                | Run application initialization, then start HTTP.                                                                                                     |
+| [`db/db-client.ts`](db/db-client.ts)                                                    | Configure the single SQLite client without importing models.                                                                                         |
+| [`models/`](models/)                                                                    | Declare attributes, validation, and relationships with Sequelize decorators; register models once in `models/index.ts`.                              |
+| [`initializers/`](initializers/)                                                        | Ensure the database before running environment-specific seeds.                                                                                       |
+| [`db/seeds/`](db/seeds/)                                                                | Select ordered seed lists by environment; development owns the fresh discussion-board data.                                                          |
+| [`router.ts`](router.ts)                                                                | Bind Express-native resource routes.                                                                                                                 |
+| [`controllers/`](controllers/)                                                          | Resolve the local user in `ApplicationController.beforeAction()`; orchestrate resource reads, authorization, services, serialization, and responses. |
+| [`policies/`](policies/)                                                                | Own author permissions and attribute allow-lists.                                                                                                    |
+| [`services/threads/`](services/threads/) and [`services/comments/`](services/comments/) | Group each resource's `CreateService` and `UpdateService`, exported as `Threads` and `Comments`.                                                     |
+| [`serializers/`](serializers/)                                                          | Select explicit response fields instead of returning raw model objects.                                                                              |
 
 ### Inherit the framework; configure the application once
 
-The inheritance paths are `BaseController → ApplicationController → ThreadsController` and `BasePolicy → ApplicationPolicy → ThreadPolicy`, with equivalent concrete classes for comments.
+The inheritance paths are `BaseController → ApplicationController → ThreadsController` and `BasePolicy → ApplicationPolicy → ThreadsPolicy`, with equivalent concrete classes for comments and users.
 
-`ApplicationController` exposes the project's `currentUser`. Request cancellation and query helpers already come from the package: actions inherit `this.signal`, `this.request.signal`, and `this.pagination`. There is no copied signal setup in each controller. Cancellation remains cooperative; it does not automatically cancel SQL or transactions.
+`ApplicationController` exposes the project's `currentUser` after its awaited `beforeAction()` loads the local account. The hook is supplied by Express Light Rail 0.11.0; there is no dispatch-factory override or callback registry. Request cancellation and query helpers also come from the package: actions inherit `this.signal`, `this.request.signal`, and `this.pagination`. There is no copied signal setup in each controller. Cancellation remains cooperative; it does not automatically cancel SQL or transactions.
 
 `ApplicationPolicy` holds common authorization behavior. Concrete policies select allowed fields and determine author permissions. Controllers use inherited `permitAttributesForCreate` and `permitAttributesForUpdate`; `BasePolicy` handles `deepPick` internally. Neither controllers nor application policies need to import that utility.
 
@@ -184,11 +184,11 @@ The inheritance paths are `BaseController → ApplicationController → ThreadsC
 
 Routes stay normal Express resource declarations. Controllers perform ordinary model reads directly, authorize mutations, pass policy-selected attributes to services, and serialize the result. Services extend `BaseService` and use `.perform(...)`; serializers extend `BaseSerializer` and use the same call style. Model validation rejects missing or blank required text, while the API error handler translates validation failures into safe HTTP 400 responses.
 
-Services follow WRAP's resource namespaces rather than repeating the resource in every filename: controllers import `{ Threads }` from `@example-app/services/index.js` and call `Threads.CreateService.perform(...)` or `Threads.UpdateService.perform(...)`. Comments use the equivalent `Comments` namespace. Each resource's `index.ts` re-exports its concrete services; the top-level service barrel exports the resource namespaces.
+Services follow WRAP's resource folders rather than repeating the resource in every filename: a threads controller imports `{ CreateService, UpdateService }` from `@example-app/services/threads/index.js`. Comments use their equivalent resource folder. Each resource's `index.ts` re-exports its concrete services; the top-level barrel also exports resource namespaces for callers using more than one resource. Serializers follow the same layout, with `ShowSerializer` in each resource folder; the inherited `.perform(...)` handles one record or an array.
 
 Models do not call `Model.init` or import the database client. Attribute and association decorators live with the owning class; `models/index.ts` calls `db.addModels(...)` once. The example keeps its existing SQLite table/column names and omits timestamps. Schema synchronization remains local-example setup, not WRAP's production migration system.
 
-[`db/seeds/index.ts`](db/seeds/index.ts) lists seeds in execution order for each environment. Add development datasets under `db/seeds/development/`; production/test lists are deliberately empty. The [seed initializer](initializers/30-run-seeds.ts) rejects unknown environments rather than falling back to demo data. Existing databases with users are left untouched.
+The [seed initializer](initializers/30-run-seeds.ts) runs [`db/seeds/development/001.fill-discussion-board.ts`](db/seeds/development/001.fill-discussion-board.ts) only in development. Production and test do not run demo seeds; unknown environments are rejected rather than falling back to development. Existing databases with users are left untouched. WRAP uses its migration tooling to run seed directories; this SQLite example keeps that environment separation without adding a migration dependency.
 
 Authorized delete actions call the model's `destroy()` method directly. The model relationship owns comment cascading; a separate service is unnecessary for that single operation.
 
