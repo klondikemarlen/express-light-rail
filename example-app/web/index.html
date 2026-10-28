@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="A small discussion-board API example built with Express Light Rail.">
+    <title>Discussion Board API</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <main>
+      <p class="eyebrow">Express Light Rail example</p>
+      <h1>Discussion Board API</h1>
+      <p>
+        This example exposes a JSON API for users, discussion threads, and comments.
+        The API is protected; send your configured demo identity or a verified bearer token
+        with API requests.
+      </p>
+
+      <section aria-labelledby="health-heading">
+        <h2 id="health-heading">Service health</h2>
+        <p><a href="/_status">Check the database-backed service status</a></p>
+      </section>
+
+      <section aria-labelledby="explore-heading">
+        <h2 id="explore-heading">Explore the API</h2>
+        <ul>
+          <li><a href="/api/users">GET /api/users</a></li>
+          <li><a href="/api/threads">GET /api/threads</a></li>
+          <li><a href="/api/threads/1/comments">GET /api/threads/:threadId/comments</a></li>
+        </ul>
+        <p>For example, in demo mode:</p>
+        <pre><code>curl -H 'x-user-id: alice' http://localhost:3000/api/threads</code></pre>
+        <p>Use a bearer token instead when the example is configured for Auth0.</p>
+      </section>
+    </main>
+  </body>
+</html>
