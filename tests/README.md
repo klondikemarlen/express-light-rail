@@ -6,6 +6,33 @@ Test files live under `tests/` and mirror `src/`; use `{filename}.test.ts`. Keep
 
 For shared test-authoring and review doctrine, see [MSSRT issue #725](https://github.com/klondikemarlen/marlens-skills-rules-and-tools/issues/725). This short guide records this package's actual runner and lifecycle rather than reproducing that full manual.
 
+Path aliases use `compilerOptions.paths` targets relative to the configuration file that declares them. The test, example, and tooling fixture configurations do not need the deprecated `baseUrl` option or an `ignoreDeprecations` suppression. Preserve those relative targets when overriding aliases in an extending configuration.
+
+## Discussion-board factories
+
+The example's request tests use [Factory Shark](https://github.com/klondikemarlen/factory-shark) factories in [`example-app/factories/`](example-app/factories/), backed by real Sequelize models and an isolated in-memory SQLite database. The development ORM and SQLite dialect are pinned together at `7.0.0-alpha.48`, the Sequelize 7 release supported by Factory Shark `2.0.0`. These are development dependencies; Factory Shark is not a package runtime dependency or public export, and the package's Sequelize peer range remains unchanged.
+
+Arrange records inside each test. Shared hooks reset the schema but do not create scenario data or call the runnable application's seed function. For example:
+
+```ts
+import { commentFactory } from "@tests/example-app/factories/comment-factory.js"
+import { threadFactory } from "@tests/example-app/factories/thread-factory.js"
+import { userFactory } from "@tests/example-app/factories/user-factory.js"
+
+const author = await userFactory.create({
+  username: "alice",
+})
+const thread = await threadFactory.create({
+  authorId: author.id,
+})
+const comment = await commentFactory.create({
+  authorId: author.id,
+  threadId: thread.id,
+})
+```
+
+`create()` persists real records. Without parent overrides, thread and comment factories create their declared `belongsTo` associations; supplying existing foreign keys reuses those records. `build()` returns unsaved models without database writes. Keep these factories pointed at disposable test persistence, not the runnable application's file database.
+
 ## Commands
 
 ```sh
