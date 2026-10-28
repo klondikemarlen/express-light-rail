@@ -36,6 +36,9 @@ export class BaseController<
     return async (req: Request, res: Response, next: NextFunction) => {
       try {
         const controllerInstance = new this(req, res, next)
+        await controllerInstance.beforeAction()
+        if (res.headersSent) return
+
         const result = await controllerInstance[action]()
         return result
       } catch (error: unknown) {
@@ -113,6 +116,8 @@ export class BaseController<
   async destroy(): Promise<unknown> {
     throw new BaseApiError("not_implemented", "Not Implemented")
   }
+
+  protected beforeAction(): void | Promise<void> {}
 
   // Internal helpers
   protected get signal(): AbortSignal {

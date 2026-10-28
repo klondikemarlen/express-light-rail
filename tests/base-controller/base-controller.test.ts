@@ -148,6 +148,173 @@ describe("BaseController", () => {
       })
     })
 
+    describe("beforeAction", () => {
+      test("when application preparation is asynchronous, inherited actions receive prepared context", async () => {
+        // Arrange
+        class ApplicationController extends BaseController {
+          protected username?: string
+
+          protected override async beforeAction(): Promise<void> {
+            await Promise.resolve()
+            this.username = this.request.get("x-user")
+          }
+        }
+
+        class UsersController extends ApplicationController {
+          private displayName?: string
+
+          protected override async beforeAction(): Promise<void> {
+            await super.beforeAction()
+            this.displayName = this.username?.toUpperCase()
+          }
+
+          async show() {
+            return this.response.json({
+              username: this.username,
+              displayName: this.displayName,
+            })
+          }
+        }
+
+        app.get("/user", UsersController.show)
+
+        // Act
+        const response = await request(app).get("/user").set("x-user", "alice")
+
+        // Assert
+        expect(response.status).toBe(200)
+        expect(response.body).toEqual({
+          username: "alice",
+          displayName: "ALICE",
+        })
+      })
+
+      test("when preparation throws, returns the error instead of performing the action", async () => {
+        // Arrange
+        class ProtectedController extends BaseController {
+          protected override beforeAction(): void {
+            throw new BaseApiError("unauthorized", "Authentication required", {}, 401)
+          }
+
+          async create() {
+            return this.response.status(201).json({
+              created: true,
+            })
+          }
+        }
+
+        app.post("/protected", ProtectedController.create)
+        app.use(createApiErrorHandler())
+
+        // Act
+        const response = await request(app).post("/protected")
+
+        // Assert
+        expect(response.status).toBe(401)
+        expect(response.body).toEqual({
+          error: {
+            code: "unauthorized",
+            msg: "Authentication required",
+            meta: {},
+          },
+        })
+      })
+
+      test("when asynchronous preparation rejects, passes the failure to Express error handling", async () => {
+        // Arrange
+        class ProtectedController extends BaseController {
+          protected override async beforeAction(): Promise<void> {
+            await Promise.resolve()
+            throw new BaseApiError("forbidden", "Access denied", {}, 403)
+          }
+
+          async update() {
+            return this.response.json({
+              updated: true,
+            })
+          }
+        }
+
+        app.patch("/protected", ProtectedController.update)
+        app.use(createApiErrorHandler())
+
+        // Act
+        const response = await request(app).patch("/protected")
+
+        // Assert
+        expect(response.status).toBe(403)
+        expect(response.body).toEqual({
+          error: {
+            code: "forbidden",
+            msg: "Access denied",
+            meta: {},
+          },
+        })
+      })
+
+      test("when preparation responds, preserves its response without running the action", async () => {
+        // Arrange
+        class RedirectController extends BaseController {
+          protected override beforeAction(): void {
+            this.response.redirect("/sign-in")
+          }
+
+          async index() {
+            return this.response.json({
+              privateContent: "Must not be sent",
+            })
+          }
+        }
+
+        app.get("/protected", RedirectController.index)
+
+        // Act
+        const response = await request(app).get("/protected")
+
+        // Assert
+        expect(response.status).toBe(302)
+        expect(response.headers.location).toBe("/sign-in")
+      })
+
+      test("when requests prepare concurrently, keeps each request's identity isolated", async () => {
+        // Arrange
+        const ready = Promise.withResolvers<void>()
+        let entered = 0
+        class UsersController extends BaseController {
+          private username?: string
+
+          protected override async beforeAction(): Promise<void> {
+            this.username = this.request.get("x-user")
+            entered += 1
+            if (entered === 2) ready.resolve()
+            await ready.promise
+          }
+
+          async show() {
+            return this.response.json({
+              username: this.username,
+            })
+          }
+        }
+
+        app.get("/user", UsersController.show)
+
+        // Act
+        const [aliceResponse, bobResponse] = await Promise.all([
+          request(app).get("/user").set("x-user", "alice"),
+          request(app).get("/user").set("x-user", "bob"),
+        ])
+
+        // Assert
+        expect(aliceResponse.body).toEqual({
+          username: "alice",
+        })
+        expect(bobResponse.body).toEqual({
+          username: "bob",
+        })
+      })
+    })
+
     describe("error handling", () => {
       class ValidationError extends BaseApiError {
         constructor(message: string) {
