@@ -200,6 +200,8 @@ Models do not call `Model.init` or import the database client. Attribute and ass
 
 The [seed initializer](initializers/30-run-seeds.ts) runs [`db/seeds/development/001.fill-discussion-board.ts`](db/seeds/development/001.fill-discussion-board.ts) only in development. Production and test do not run demo seeds; unknown environments are rejected rather than falling back to development. Existing databases with users are left untouched. WRAP uses its migration tooling to run seed directories; this SQLite example keeps that environment separation without adding a migration dependency.
 
+The development seed uses a managed transaction with Sequelize 7's automatic transaction context, as in WRAP. Model queries inside the callback share that transaction without explicit `{ transaction }` options. If a write fails, all seed writes roll back.
+
 Authorized delete actions call the model's `destroy()` method directly. The model relationship owns comment cascading; a separate service is unnecessary for that single operation.
 
 Mutation requests accept JSON objects, URL-encoded fields, or multipart text fields. Shared API middleware rejects JSON arrays before policy filtering, so malformed attribute shapes return a client error rather than an internal failure.
