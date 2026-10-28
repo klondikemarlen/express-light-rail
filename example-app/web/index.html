@@ -13,8 +13,8 @@
       <h1>Discussion Board API</h1>
       <p>
         This example exposes a JSON API for users, discussion threads, and comments.
-        The API is protected; send your configured demo identity or a verified bearer token
-        with API requests.
+        Log in with a username and password to receive a short-lived bearer token,
+        then send it with protected API requests.
       </p>
 
       <section aria-labelledby="health-heading">
@@ -29,9 +29,13 @@
           <li><a href="/api/threads">GET /api/threads</a></li>
           <li><a href="/api/threads/1/comments">GET /api/threads/:threadId/comments</a></li>
         </ul>
-        <p>For example, in demo mode:</p>
-        <pre><code>curl -H 'x-user-id: alice' http://localhost:3000/api/threads</code></pre>
-        <p>Use a bearer token instead when the example is configured for Auth0.</p>
+        <p>Log in using a seeded development account:</p>
+        <pre><code>curl -H 'content-type: application/json' \
+  -d '{"username":"alice","password":"alice-password"}' http://localhost:3000/api/session
+curl -H "Authorization: Bearer $ALICE_TOKEN" http://localhost:3000/api/threads</code></pre>
+        <p>Set ALICE_TOKEN to the returned accessToken. It expires after 15 minutes.
+        Auth0 is a common alternative wired at the same authentication boundary;
+        no external identity provider is required for this example.</p>
       </section>
     </main>
   </body>

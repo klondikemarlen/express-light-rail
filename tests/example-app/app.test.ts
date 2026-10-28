@@ -7,7 +7,7 @@ const { originalStorage } = vi.hoisted(() => {
   return { originalStorage }
 })
 
-import { db, Comment } from "@example-app/models/index.js"
+import { Comment, db } from "@example-app/models/index.js"
 
 import { commentFactory } from "@tests/example-app/factories/comment-factory.js"
 import { threadFactory } from "@tests/example-app/factories/thread-factory.js"
@@ -28,17 +28,32 @@ afterAll(async () => {
   }
 })
 
+const testPassword = "test-password"
+
+async function login(username: string): Promise<string> {
+  const response = await request(app).post("/api/session").send({
+    username,
+    password: testPassword,
+  })
+  const { accessToken } = response.body
+  if (response.status !== 201 || typeof accessToken !== "string") {
+    throw new Error("Login did not return an access token")
+  }
+  return accessToken
+}
+
 describe("discussion board", () => {
   test("when a user lists threads, returns serialized model records", async () => {
     // Arrange
     const reader = await userFactory.create({
       username: "bob",
     })
+    const token = await login(reader.username)
     const thread = await threadFactory.create({
       title: "Welcome to the board",
       body: "Share what you are building.",
     })
-    const route = request(app).get("/api/threads").set("x-user-id", reader.username)
+    const route = request(app).get("/api/threads").set("Authorization", `Bearer ${token}`)
 
     // Act
     const response = await route
@@ -62,8 +77,9 @@ describe("discussion board", () => {
     const author = await userFactory.create({
       username: "bob",
     })
+    const token = await login(author.username)
     const existingThread = await threadFactory.create()
-    const route = request(app).post("/api/threads").set("x-user-id", author.username).send({
+    const route = request(app).post("/api/threads").set("Authorization", `Bearer ${token}`).send({
       id: 99,
       authorId: existingThread.authorId,
       title: "A new discussion",
@@ -90,13 +106,14 @@ describe("discussion board", () => {
     const author = await userFactory.create({
       username: "alice",
     })
+    const token = await login(author.username)
     const thread = await threadFactory.create({
       authorId: author.id,
       body: "Share what you are building.",
     })
     const route = request(app)
       .patch(`/api/threads/${thread.id}`)
-      .set("x-user-id", author.username)
+      .set("Authorization", `Bearer ${token}`)
       .send({
         title: "An updated welcome",
         authorId: 999,
@@ -122,10 +139,11 @@ describe("discussion board", () => {
     const otherUser = await userFactory.create({
       username: "bob",
     })
+    const token = await login(otherUser.username)
     const thread = await threadFactory.create()
     const route = request(app)
       .patch(`/api/threads/${thread.id}`)
-      .set("x-user-id", otherUser.username)
+      .set("Authorization", `Bearer ${token}`)
       .send({
         title: "Not my discussion",
       })
@@ -149,7 +167,8 @@ describe("discussion board", () => {
     const author = await userFactory.create({
       username: "alice",
     })
-    const route = request(app).post("/api/threads").set("x-user-id", author.username).send({
+    const token = await login(author.username)
+    const route = request(app).post("/api/threads").set("Authorization", `Bearer ${token}`).send({
       title: "   ",
       body: "A valid body",
     })
@@ -173,7 +192,8 @@ describe("discussion board", () => {
     const reader = await userFactory.create({
       username: "alice",
     })
-    const route = request(app).get("/api/threads/999").set("x-user-id", reader.username)
+    const token = await login(reader.username)
+    const route = request(app).get("/api/threads/999").set("Authorization", `Bearer ${token}`)
 
     // Act
     const response = await route
@@ -192,7 +212,8 @@ describe("discussion board", () => {
   test("when a thread identifier is malformed, returns a public not-found error", async () => {
     // Arrange
     const reader = await userFactory.create()
-    const route = request(app).get("/api/threads/not-an-id").set("x-user-id", reader.username)
+    const token = await login(reader.username)
+    const route = request(app).get("/api/threads/not-an-id").set("Authorization", `Bearer ${token}`)
 
     // Act
     const response = await route
@@ -211,7 +232,8 @@ describe("discussion board", () => {
   test("when a user identifier is malformed, returns a public not-found error", async () => {
     // Arrange
     const reader = await userFactory.create()
-    const route = request(app).get("/api/users/not-an-id").set("x-user-id", reader.username)
+    const token = await login(reader.username)
+    const route = request(app).get("/api/users/not-an-id").set("Authorization", `Bearer ${token}`)
 
     // Act
     const response = await route
@@ -230,9 +252,10 @@ describe("discussion board", () => {
   test("when a nested comment identifier is malformed, returns a public not-found error", async () => {
     // Arrange
     const reader = await userFactory.create()
+    const token = await login(reader.username)
     const route = request(app)
       .get("/api/threads/1/comments/not-an-id")
-      .set("x-user-id", reader.username)
+      .set("Authorization", `Bearer ${token}`)
 
     // Act
     const response = await route
@@ -253,10 +276,11 @@ describe("discussion board", () => {
     const author = await userFactory.create({
       username: "alice",
     })
+    const token = await login(author.username)
     const thread = await threadFactory.create()
     const route = request(app)
       .post(`/api/threads/${thread.id}/comments`)
-      .set("x-user-id", author.username)
+      .set("Authorization", `Bearer ${token}`)
       .send({
         body: "I am building a discussion board.",
         id: 99,
@@ -284,6 +308,7 @@ describe("discussion board", () => {
     const threadAuthor = await userFactory.create({
       username: "alice",
     })
+    const token = await login(threadAuthor.username)
     const thread = await threadFactory.create({
       authorId: threadAuthor.id,
     })
@@ -292,7 +317,7 @@ describe("discussion board", () => {
     })
     const route = request(app)
       .patch(`/api/threads/${thread.id}/comments/${comment.id}`)
-      .set("x-user-id", threadAuthor.username)
+      .set("Authorization", `Bearer ${token}`)
       .send({
         body: "Not my comment",
       })
@@ -316,11 +341,12 @@ describe("discussion board", () => {
     const reader = await userFactory.create({
       username: "bob",
     })
+    const token = await login(reader.username)
     const comment = await commentFactory.create()
     const otherThread = await threadFactory.create()
     const route = request(app)
       .get(`/api/threads/${otherThread.id}/comments/${comment.id}`)
-      .set("x-user-id", reader.username)
+      .set("Authorization", `Bearer ${token}`)
 
     // Act
     const response = await route
@@ -341,10 +367,13 @@ describe("discussion board", () => {
     const author = await userFactory.create({
       username: "alice",
     })
+    const token = await login(author.username)
     const thread = await threadFactory.create({
       authorId: author.id,
     })
-    const route = request(app).delete(`/api/threads/${thread.id}`).set("x-user-id", author.username)
+    const route = request(app)
+      .delete(`/api/threads/${thread.id}`)
+      .set("Authorization", `Bearer ${token}`)
 
     // Act
     const response = await route
@@ -359,27 +388,30 @@ describe("discussion board", () => {
     const author = await userFactory.create({
       username: "alice",
     })
+    const token = await login(author.username)
     const thread = await threadFactory.create({
       authorId: author.id,
     })
     await commentFactory.create({
       threadId: thread.id,
     })
-    const route = request(app).delete(`/api/threads/${thread.id}`).set("x-user-id", author.username)
+    const route = request(app)
+      .delete(`/api/threads/${thread.id}`)
+      .set("Authorization", `Bearer ${token}`)
 
     // Act
     await route
-
-    // Assert
     const comments = await Comment.findAll({
       where: {
         threadId: thread.id,
       },
     })
+
+    // Assert
     expect(comments).toEqual([])
   })
 
-  test("when demo identity is missing, denies access", async () => {
+  test("when a bearer token is missing, denies access", async () => {
     // Arrange
     const route = request(app).get("/api/threads")
 
@@ -402,7 +434,11 @@ describe("discussion board", () => {
     const author = await userFactory.create({
       username: "alice",
     })
-    const route = request(app).post("/api/threads").set("x-user-id", author.username).send([null])
+    const token = await login(author.username)
+    const route = request(app)
+      .post("/api/threads")
+      .set("Authorization", `Bearer ${token}`)
+      .send([null])
 
     // Act
     const response = await route
@@ -420,8 +456,13 @@ describe("discussion board", () => {
 
   test("when JSON cannot be parsed, preserves the client error status", async () => {
     // Arrange
+    const author = await userFactory.create({
+      username: "alice",
+    })
+    const token = await login(author.username)
     const route = request(app)
       .post("/api/threads")
+      .set("Authorization", `Bearer ${token}`)
       .set("Content-Type", "application/json")
       .send("{")
 
@@ -441,8 +482,13 @@ describe("discussion board", () => {
 
   test("when a JSON body exceeds its limit, preserves payload-too-large status", async () => {
     // Arrange
+    const author = await userFactory.create({
+      username: "alice",
+    })
+    const token = await login(author.username)
     const route = request(app)
       .post("/api/threads")
+      .set("Authorization", `Bearer ${token}`)
       .send({ title: "x".repeat(110000) })
 
     // Act
@@ -464,9 +510,10 @@ describe("discussion board", () => {
     const author = await userFactory.create({
       username: "alice",
     })
+    const token = await login(author.username)
     const route = request(app)
       .post("/api/threads")
-      .set("x-user-id", author.username)
+      .set("Authorization", `Bearer ${token}`)
       .type("form")
       .send({
         title: "A form discussion",
@@ -493,9 +540,10 @@ describe("discussion board", () => {
     const author = await userFactory.create({
       username: "alice",
     })
+    const token = await login(author.username)
     const route = request(app)
       .post("/api/threads")
-      .set("x-user-id", author.username)
+      .set("Authorization", `Bearer ${token}`)
       .field("title", "A multipart discussion")
       .field("body", "Text fields without file uploads")
 
@@ -514,9 +562,16 @@ describe("discussion board", () => {
     })
   })
 
-  test("when an unknown API path requests HTML, returns the JSON not-found response", async () => {
+  test("when an authenticated caller requests an unknown API path as HTML, returns JSON not found", async () => {
     // Arrange
-    const route = request(app).get("/api/missing").set("Accept", "text/html")
+    const caller = await userFactory.create({
+      username: "alice",
+    })
+    const token = await login(caller.username)
+    const route = request(app)
+      .get("/api/missing")
+      .set("Authorization", `Bearer ${token}`)
+      .set("Accept", "text/html")
 
     // Act
     const response = await route

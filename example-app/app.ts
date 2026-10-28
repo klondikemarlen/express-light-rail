@@ -9,7 +9,6 @@ import { BaseApiError, createApiErrorHandler, createApiNotFoundHandler } from "e
 import { FRONTEND_ORIGIN, IS_PRODUCTION, WEB_DIRECTORY } from "@example-app/config.js"
 import {
   jsonBodyParser,
-  normalizeFormBody,
   parseBoundedQuery,
   parseMultipartBody,
   requestLoggerMiddleware,
@@ -51,7 +50,6 @@ app.use(
 app.use("/api", jsonBodyParser)
 app.use("/api", urlEncodedBodyParser)
 app.use("/api", parseMultipartBody)
-app.use("/api", normalizeFormBody)
 
 app.use("/api", (request, _response, next) => {
   const body: unknown = request.body

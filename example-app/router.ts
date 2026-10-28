@@ -2,20 +2,20 @@ import { Router } from "express"
 
 import {
   CommentsController,
+  SessionsController,
   StatusController,
   ThreadsController,
   UsersController,
 } from "@example-app/controllers/index.js"
-import {
-  authorizationMiddleware,
-  bodyAuthorizationHoistMiddleware,
-} from "@example-app/middlewares/index.js"
+import { authorizationMiddleware, normalizeFormBody } from "@example-app/middlewares/index.js"
 
 export const router = Router()
 
 router.route("/_status").get(StatusController.show)
 
-router.use("/api", bodyAuthorizationHoistMiddleware, authorizationMiddleware)
+router.route("/api/session").post(SessionsController.create)
+
+router.use("/api", normalizeFormBody, authorizationMiddleware)
 
 router.route("/api/users").get(UsersController.index)
 router.route("/api/users/:userId").get(UsersController.show)

@@ -1,41 +1,44 @@
-import { UnauthorizedError, auth } from "express-oauth2-jwt-bearer"
 import { BaseApiError } from "express-light-rail"
-import type { Handler, NextFunction, Request, Response } from "express"
+import type { NextFunction, Request, Response } from "express"
+import { errors, jwtVerify } from "jose"
 
-import { AUTHENTICATION_MODE, AUTH0_AUDIENCE, AUTH0_ISSUER_BASE_URL } from "@example-app/config.js"
+import {
+  JWT_AUDIENCE,
+  JWT_EXPIRATION_SECONDS,
+  JWT_ISSUER,
+  JWT_SECRET,
+} from "@example-app/config.js"
+import type { User } from "@example-app/models/user.js"
+import { LoadCurrentUserService } from "@example-app/services/users/index.js"
 
-let tokenMiddleware: Handler | undefined
-if (AUTHENTICATION_MODE === "auth0") {
-  tokenMiddleware = auth({
-    issuerBaseURL: AUTH0_ISSUER_BASE_URL,
-    audience: AUTH0_AUDIENCE,
-    tokenSigningAlg: "RS256",
-  })
-}
+const signingKey = new TextEncoder().encode(JWT_SECRET)
 
-export function authorizationMiddleware(
+export async function authorizationMiddleware(
   request: Request,
-  response: Response,
+  _response: Response,
   next: NextFunction
-): void {
-  if (AUTHENTICATION_MODE === "demo") {
+): Promise<void> {
+  try {
+    const authorization = request.get("authorization")
+    const bearer = authorization?.match(/^Bearer ([^\s]+)$/i)
+    if (!bearer) throw new BaseApiError("unauthorized", "Authentication required", {}, 401)
+
+    const { payload } = await jwtVerify(bearer[1], signingKey, {
+      algorithms: ["HS256"],
+      issuer: JWT_ISSUER,
+      audience: JWT_AUDIENCE,
+      requiredClaims: ["sub", "iat", "exp"],
+      maxTokenAge: JWT_EXPIRATION_SECONDS,
+    })
+    const authenticatedRequest: Request & { currentUser?: User } = request
+    authenticatedRequest.currentUser = await LoadCurrentUserService.perform(payload.sub)
     next()
-    return
-  }
-
-  if (!request.get("authorization")) {
-    next(new BaseApiError("unauthorized", "Authentication required", {}, 401))
-    return
-  }
-
-  if (!tokenMiddleware) throw new Error("Auth0 token middleware is not configured")
-
-  tokenMiddleware(request, response, (error?: unknown) => {
-    if (error instanceof UnauthorizedError) {
+  } catch (error: unknown) {
+    if (error instanceof errors.JOSEError) {
       next(new BaseApiError("unauthorized", "Authentication required", {}, 401))
       return
     }
 
     next(error)
-  })
+  }
 }
