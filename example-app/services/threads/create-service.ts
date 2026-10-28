@@ -2,7 +2,7 @@ import { BaseApiError, BaseService } from "express-light-rail"
 
 import { Thread, type User } from "@example-app/models/index.js"
 
-export class CreateThreadService extends BaseService<Promise<Thread>> {
+export class CreateService extends BaseService<Promise<Thread>> {
   constructor(
     private readonly actor: User,
     private readonly attributes: Partial<Thread>

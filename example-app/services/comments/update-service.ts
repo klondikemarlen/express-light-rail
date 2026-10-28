@@ -2,7 +2,7 @@ import { BaseService } from "express-light-rail"
 
 import { type Comment } from "@example-app/models/index.js"
 
-export class UpdateCommentService extends BaseService<Promise<Comment>> {
+export class UpdateService extends BaseService<Promise<Comment>> {
   constructor(
     private readonly comment: Comment,
     private readonly attributes: Partial<Comment>

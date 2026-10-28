@@ -4,8 +4,7 @@ import { ApplicationController } from "@example-app/controllers/application-cont
 import { Thread } from "@example-app/models/index.js"
 import { ThreadPolicy } from "@example-app/policies/thread-policy.js"
 import { ThreadSerializer } from "@example-app/serializers/thread-serializer.js"
-import { CreateThreadService } from "@example-app/services/create-thread-service.js"
-import { UpdateThreadService } from "@example-app/services/update-thread-service.js"
+import { Threads } from "@example-app/services/index.js"
 
 export class ThreadsController extends ApplicationController<Thread> {
   async index(): Promise<void> {
@@ -31,7 +30,7 @@ export class ThreadsController extends ApplicationController<Thread> {
     const policy = new ThreadPolicy(this.currentUser, Thread.build())
     policy.authorize("create")
     const attributes = policy.permitAttributesForCreate(this.request.body)
-    const thread = await CreateThreadService.perform(this.currentUser, attributes)
+    const thread = await Threads.CreateService.perform(this.currentUser, attributes)
     this.response.status(201).json({
       thread: ThreadSerializer.perform(thread),
     })
@@ -42,7 +41,7 @@ export class ThreadsController extends ApplicationController<Thread> {
     const policy = new ThreadPolicy(this.currentUser, thread)
     policy.authorize("update")
     const attributes = policy.permitAttributesForUpdate(this.request.body)
-    const updatedThread = await UpdateThreadService.perform(thread, attributes)
+    const updatedThread = await Threads.UpdateService.perform(thread, attributes)
     this.response.json({
       thread: ThreadSerializer.perform(updatedThread),
     })

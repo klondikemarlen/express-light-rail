@@ -4,8 +4,7 @@ import { ApplicationController } from "@example-app/controllers/application-cont
 import { Comment, Thread } from "@example-app/models/index.js"
 import { CommentPolicy } from "@example-app/policies/comment-policy.js"
 import { CommentSerializer } from "@example-app/serializers/comment-serializer.js"
-import { CreateCommentService } from "@example-app/services/create-comment-service.js"
-import { UpdateCommentService } from "@example-app/services/update-comment-service.js"
+import { Comments } from "@example-app/services/index.js"
 
 export class CommentsController extends ApplicationController<Comment> {
   async index(): Promise<void> {
@@ -36,7 +35,7 @@ export class CommentsController extends ApplicationController<Comment> {
     const policy = new CommentPolicy(this.currentUser, Comment.build())
     policy.authorize("create")
     const attributes = policy.permitAttributesForCreate(this.request.body)
-    const comment = await CreateCommentService.perform(this.currentUser, thread, attributes)
+    const comment = await Comments.CreateService.perform(this.currentUser, thread, attributes)
     this.response.status(201).json({
       comment: CommentSerializer.perform(comment),
     })
@@ -47,7 +46,7 @@ export class CommentsController extends ApplicationController<Comment> {
     const policy = new CommentPolicy(this.currentUser, comment)
     policy.authorize("update")
     const attributes = policy.permitAttributesForUpdate(this.request.body)
-    const updatedComment = await UpdateCommentService.perform(comment, attributes)
+    const updatedComment = await Comments.UpdateService.perform(comment, attributes)
     this.response.json({
       comment: CommentSerializer.perform(updatedComment),
     })
