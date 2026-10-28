@@ -107,14 +107,14 @@ For a guided introduction to running the app and following its request flow, sta
 npm run example
 ```
 
-Explore the seeded discussion:
+Log in with the seeded credentials described in the [walkthrough](../example-app/README.md), then use the returned bearer token:
 
 ```sh
-curl -H 'x-user-id: alice' http://localhost:3000/api/threads
-curl -H 'x-user-id: bob' http://localhost:3000/api/threads/1/comments
+curl -H "Authorization: Bearer $ALICE_TOKEN" http://localhost:3000/api/threads
+curl -H "Authorization: Bearer $BOB_TOKEN" http://localhost:3000/api/threads/1/comments
 ```
 
-Follow the [walkthrough](../example-app/README.md) for create, update, delete, forbidden, validation, and nested-resource scenarios. Startup seeds only a fresh database; changes survive restarts. The `x-user-id` username header is demonstration-only, not production authentication. This local SQLite example is not a migration of WRAP, Travel Authorization, or ELCC.
+Follow the [walkthrough](../example-app/README.md) for login, create, update, delete, forbidden, validation, and nested-resource scenarios. Startup seeds only a fresh development database; changes survive restarts. Password hashes and 15-minute bearer JWTs are owned by the example, not the framework. This local SQLite example is not a migration of WRAP, Travel Authorization, or ELCC.
 
 ## Consumer-shaped cutover fixtures and artifact smoke
 

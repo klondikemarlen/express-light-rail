@@ -22,29 +22,23 @@ SQLite stores data in `.example-app/discussion-board.sqlite`, which is ignored b
 EXAMPLE_DATABASE_STORAGE=/tmp/my-discussion-board.sqlite npm run example
 ```
 
-No Redis, external account, environment file, or database container is required for local demo mode. Schema synchronization is convenient for this example; production applications should own migrations, backups, configuration, and deployment.
+No Redis, external account, environment file, or database container is required. Schema synchronization is convenient for this example; production applications should own migrations, backups, configuration, and deployment.
 
 ## Application boundary and authentication
 
 The framework runtime remains minimal. This example owns its Helmet security headers, credentialed CORS policy, bounded query/JSON/URL-encoded/multipart parsing, completion logging, authentication, status endpoint, and frontend hosting.
 
-Token verification runs in ordinary [authorization middleware](middlewares/authorization-middleware.ts). [`ApplicationController.beforeAction()`](controllers/application-controller.ts) then resolves the local user before each resource action: demo mode uses `x-user-id`; Auth0 mode uses the verified subject's explicit username mapping. Resource policies decide which mutations that user may perform. The package creates the request cancellation signal before the hook runs; authentication and database-driver cancellation remain separate concerns.
+[`POST /api/session`](controllers/sessions-controller.ts) accepts a username and password as JSON or form fields. Login preserves credential strings; resource-only form normalization runs afterward. [`Users.AuthenticateService`](services/users/authenticate-service.ts) checks the salted scrypt password hash; the [session service](services/sessions/create-service.ts) returns a signed, 15-minute JWT. Send that token in the `Authorization: Bearer` header on subsequent API requests.
 
-For verified bearer tokens, configure:
+The [authorization middleware](middlewares/authorization-middleware.ts) verifies HS256 signature, issuer, audience, age, and expiry, then calls a service to load the existing user into `request.currentUser`. `ApplicationController` only exposes that context; it does not override `beforeAction()` or dispatch. Resource policies still own permissions.
 
-```sh
-EXAMPLE_AUTH_MODE=auth0 \
-AUTH0_ISSUER_BASE_URL=https://your-tenant.auth0.com/ \
-AUTH0_AUDIENCE=your-api-audience \
-AUTH0_SUBJECT_USERS='{"auth0|your-subject":"alice"}' \
-npm run example
-```
+This is a small local identity provider, not OAuth/OIDC or a replacement for Auth0's full account platform. Auth0 is a common production choice: its token verification and local-user mapping would sit at the same authorization middleware/service boundary. This example does not require or implement Auth0.
 
-Send `Authorization: Bearer <access-token>`. The SDK verifies RS256 signatures, issuer, audience, and expiry through discovery/JWKS. Only explicitly mapped subjects with existing local users are accepted. This example does not provision accounts or trust `x-user-id` in Auth0 mode. Query-string tokens are not accepted. Forms may supply `HOISTABLE_AUTHORIZATION_TOKEN`; it is removed before attribute filtering and never replaces an existing authorization header.
+Without `EXAMPLE_JWT_SECRET`, development/test generates a fresh signing key each process; restart invalidates existing tokens, so log in again. To preserve tokens across restarts, supply a stable secret containing at least 32 bytes. Production requires it. Generate a strong value with `openssl rand -base64 32` and configure it outside versioned files.
 
-Production defaults to Auth0 and rejects demo mode. Production issuers require HTTPS; non-production permits localhost HTTP for disposable identity-provider QA. `FRONTEND_URL` selects the allowed CORS origin (default `http://localhost:3000`). Request logs exclude query strings, headers, and bodies.
+There are no cookies, refresh tokens, account-registration routes, or token revocation. Logout means discarding the token; a stolen token remains usable until expiry. HTTPS, login throttling, account recovery, secret rotation, and production provisioning remain application responsibilities. Passwords and hashes are never serialized; request logs exclude query strings, headers, and bodies. `FRONTEND_URL` selects the allowed CORS origin.
 
-`GET /_status` is public. `/api` misses never become frontend pages: they reach the JSON 404 handler after token middleware, so Auth0 mode still requires a valid bearer token. `EXAMPLE_WEB_DIRECTORY` selects the static directory (default `example-app/web`): production serves the index for extensionless HTML GET routes, while development serves a 404 page. Missing assets remain 404s. Multipart requests accept bounded text fields, not files. These are example-owned application choices, not framework requirements.
+`GET /_status` and `POST /api/session` are public. Other `/api` requests require a bearer token, including unknown paths; authenticated misses return JSON 404 and never become frontend pages. Query/body tokens and `x-user-id` are not accepted. `EXAMPLE_WEB_DIRECTORY` selects static assets: production serves the index for extensionless HTML GET routes, while development serves a 404 page. Missing assets remain 404s.
 
 ## Meet the users and models
 
@@ -54,18 +48,34 @@ Production defaults to Auth0 and rejects demo mode. Production issuers require H
 | Thread  | `id`, `title`, `body`, `authorId`    | Belongs to an author; has comments.  |
 | Comment | `id`, `body`, `threadId`, `authorId` | Belongs to one thread and an author. |
 
-The `x-user-id` header selects the seeded username `alice` or `bob`. This is deliberately simple **demo identity selection**, not secure authentication. A real application establishes the current user through its authentication middleware instead.
+The fresh development database includes `alice` / `alice-password` and `bob` / `bob-password`. These are public example credentials, not production accounts. Log in as each user:
+
+```sh
+curl -i -H 'content-type: application/json' \
+  -d '{"username":"alice","password":"alice-password"}' http://localhost:3000/api/session
+curl -i -H 'content-type: application/json' \
+  -d '{"username":"bob","password":"bob-password"}' http://localhost:3000/api/session
+```
+
+Both return HTTP 201 with `{ "accessToken": "...", "tokenType": "Bearer", "expiresIn": 900 }` and `Cache-Control: no-store`. Copy the returned tokens into variables in your terminal:
+
+```sh
+export ALICE_TOKEN='<Alice accessToken>'
+export BOB_TOKEN='<Bob accessToken>'
+```
+
+Existing pre-login databases retain their users and posts. Startup adds a nullable password-hash column, but never assigns known passwords to existing accounts. For the seeded login walkthrough, choose a fresh `EXAMPLE_DATABASE_STORAGE` path instead of deleting existing data.
 
 Both users can read discussions and create posts. Only a post's author can update or delete it. Owning a thread does not grant permission to edit somebody else's comments. Deleting a thread also deletes its comments through the database relationship. User endpoints are read-only; account administration is outside this example.
 
 In a second terminal:
 
 ```sh
-curl -i -H 'x-user-id: alice' http://localhost:3000/api/users
-curl -i -H 'x-user-id: alice' http://localhost:3000/api/users/1
-curl -i -H 'x-user-id: alice' http://localhost:3000/api/threads
-curl -i -H 'x-user-id: alice' http://localhost:3000/api/threads/1
-curl -i -H 'x-user-id: alice' http://localhost:3000/api/threads/1/comments
+curl -i -H "Authorization: Bearer $ALICE_TOKEN" http://localhost:3000/api/users
+curl -i -H "Authorization: Bearer $ALICE_TOKEN" http://localhost:3000/api/users/1
+curl -i -H "Authorization: Bearer $ALICE_TOKEN" http://localhost:3000/api/threads
+curl -i -H "Authorization: Bearer $ALICE_TOKEN" http://localhost:3000/api/threads/1
+curl -i -H "Authorization: Bearer $ALICE_TOKEN" http://localhost:3000/api/threads/1/comments
 ```
 
 Expect HTTP 200. The fresh database contains thread 1, titled `Welcome to the board`, authored by Alice (user 1). Comment 1 belongs to Bob (user 2). Responses use explicit envelopes: `users`, `threads`, or `comments` for lists; `user`, `thread`, or `comment` for a single record. List endpoints use the inherited pagination helper; for example, `GET /api/threads?page=1&perPage=5`.
@@ -75,7 +85,7 @@ Expect HTTP 200. The fresh database contains thread 1, titled `Welcome to the bo
 Start a discussion as Alice:
 
 ```sh
-curl -i -H 'x-user-id: alice' -H 'content-type: application/json' \
+curl -i -H "Authorization: Bearer $ALICE_TOKEN" -H 'content-type: application/json' \
   -d '{"title":"What are you building?","body":"Share your current project."}' \
   http://localhost:3000/api/threads
 ```
@@ -85,7 +95,7 @@ Expect HTTP 201 with a `thread` object containing the submitted text, a generate
 Reply as Bob:
 
 ```sh
-curl -i -H 'x-user-id: bob' -H 'content-type: application/json' \
+curl -i -H "Authorization: Bearer $BOB_TOKEN" -H 'content-type: application/json' \
   -d '{"body":"I am building an Express app."}' \
   http://localhost:3000/api/threads/2/comments
 ```
@@ -97,21 +107,21 @@ Expect HTTP 201 with a `comment` object containing `threadId: 2` and `authorId: 
 Read the new records:
 
 ```sh
-curl -i -H 'x-user-id: alice' http://localhost:3000/api/threads/2
-curl -i -H 'x-user-id: alice' http://localhost:3000/api/threads/2/comments/2
+curl -i -H "Authorization: Bearer $ALICE_TOKEN" http://localhost:3000/api/threads/2
+curl -i -H "Authorization: Bearer $ALICE_TOKEN" http://localhost:3000/api/threads/2/comments/2
 ```
 
 Alice can change the thread title without replacing its body:
 
 ```sh
-curl -i -X PATCH -H 'x-user-id: alice' -H 'content-type: application/json' \
+curl -i -X PATCH -H "Authorization: Bearer $ALICE_TOKEN" -H 'content-type: application/json' \
   -d '{"title":"Show your project"}' http://localhost:3000/api/threads/2
 ```
 
 Bob can update his comment:
 
 ```sh
-curl -i -X PATCH -H 'x-user-id: bob' -H 'content-type: application/json' \
+curl -i -X PATCH -H "Authorization: Bearer $BOB_TOKEN" -H 'content-type: application/json' \
   -d '{"body":"I am using Rails-style controllers with Express."}' \
   http://localhost:3000/api/threads/2/comments/2
 ```
@@ -123,7 +133,7 @@ Both PATCH requests return HTTP 200 with the updated record. Omitted fields rema
 Alice owns the thread but not Bob's comment. This request returns HTTP 403 with `error.code` equal to `forbidden`:
 
 ```sh
-curl -i -X PATCH -H 'x-user-id: alice' -H 'content-type: application/json' \
+curl -i -X PATCH -H "Authorization: Bearer $ALICE_TOKEN" -H 'content-type: application/json' \
   -d '{"body":"Replace somebody else\u0027s comment"}' \
   http://localhost:3000/api/threads/2/comments/2
 ```
@@ -131,17 +141,17 @@ curl -i -X PATCH -H 'x-user-id: alice' -H 'content-type: application/json' \
 Other useful checks:
 
 ```sh
-# Missing demo identity: HTTP 401, error.code = "unauthorized".
+# Missing bearer token: HTTP 401, error.code = "unauthorized".
 curl -i http://localhost:3000/api/threads
 
 # Missing record: HTTP 404, error.code = "not_found".
-curl -i -H 'x-user-id: alice' http://localhost:3000/api/threads/999999
+curl -i -H "Authorization: Bearer $ALICE_TOKEN" http://localhost:3000/api/threads/999999
 
 # Comment 1 belongs to thread 1, not thread 2: HTTP 404.
-curl -i -H 'x-user-id: alice' http://localhost:3000/api/threads/2/comments/1
+curl -i -H "Authorization: Bearer $ALICE_TOKEN" http://localhost:3000/api/threads/2/comments/1
 
 # Blank required title: HTTP 400, error.code = "invalid_input".
-curl -i -H 'x-user-id: alice' -H 'content-type: application/json' \
+curl -i -H "Authorization: Bearer $ALICE_TOKEN" -H 'content-type: application/json' \
   -d '{"title":" ","body":"A valid body"}' http://localhost:3000/api/threads
 ```
 
@@ -150,33 +160,33 @@ curl -i -H 'x-user-id: alice' -H 'content-type: application/json' \
 Bob can delete his comment; Alice can delete her thread:
 
 ```sh
-curl -i -X DELETE -H 'x-user-id: bob' http://localhost:3000/api/threads/2/comments/2
-curl -i -X DELETE -H 'x-user-id: alice' http://localhost:3000/api/threads/2
+curl -i -X DELETE -H "Authorization: Bearer $BOB_TOKEN" http://localhost:3000/api/threads/2/comments/2
+curl -i -X DELETE -H "Authorization: Bearer $ALICE_TOKEN" http://localhost:3000/api/threads/2
 ```
 
 Both return HTTP 204 with no body. A subsequent GET returns 404. If a thread still has comments when its author deletes it, SQLite removes those comments too.
 
 ## Follow the application structure
 
-| Location                                                                                | Responsibility                                                                                                                                       |
-| --------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [`app.ts`](app.ts)                                                                      | Compose parsing, security, API routing, frontend hosting, and error handling.                                                                        |
-| [`server.ts`](server.ts)                                                                | Run application initialization, then start HTTP.                                                                                                     |
-| [`db/db-client.ts`](db/db-client.ts)                                                    | Configure the single SQLite client without importing models.                                                                                         |
-| [`models/`](models/)                                                                    | Declare attributes, validation, and relationships with Sequelize decorators; register models once in `models/index.ts`.                              |
-| [`initializers/`](initializers/)                                                        | Ensure the database before running environment-specific seeds.                                                                                       |
-| [`db/seeds/`](db/seeds/)                                                                | Select ordered seed lists by environment; development owns the fresh discussion-board data.                                                          |
-| [`router.ts`](router.ts)                                                                | Bind Express-native resource routes.                                                                                                                 |
-| [`controllers/`](controllers/)                                                          | Resolve the local user in `ApplicationController.beforeAction()`; orchestrate resource reads, authorization, services, serialization, and responses. |
-| [`policies/`](policies/)                                                                | Own author permissions and attribute allow-lists.                                                                                                    |
-| [`services/threads/`](services/threads/) and [`services/comments/`](services/comments/) | Group each resource's `CreateService` and `UpdateService`, exported as `Threads` and `Comments`.                                                     |
-| [`serializers/`](serializers/)                                                          | Select explicit response fields instead of returning raw model objects.                                                                              |
+| Location                                                                                | Responsibility                                                                                                                   |
+| --------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| [`app.ts`](app.ts)                                                                      | Compose parsing, security, API routing, frontend hosting, and error handling.                                                    |
+| [`server.ts`](server.ts)                                                                | Run application initialization, then start HTTP.                                                                                 |
+| [`db/db-client.ts`](db/db-client.ts)                                                    | Configure the single SQLite client without importing models.                                                                     |
+| [`models/`](models/)                                                                    | Declare attributes, validation, and relationships with Sequelize decorators; register models once in `models/index.ts`.          |
+| [`initializers/`](initializers/)                                                        | Ensure the database before running environment-specific seeds.                                                                   |
+| [`db/seeds/`](db/seeds/)                                                                | Select ordered seed lists by environment; development owns the fresh discussion-board data.                                      |
+| [`router.ts`](router.ts)                                                                | Bind Express-native resource routes.                                                                                             |
+| [`controllers/`](controllers/)                                                          | Expose middleware-established currentUser and orchestrate resource reads, authorization, services, serialization, and responses. |
+| [`policies/`](policies/)                                                                | Own author permissions and attribute allow-lists.                                                                                |
+| [`services/threads/`](services/threads/) and [`services/comments/`](services/comments/) | Group each resource's `CreateService` and `UpdateService`, exported as `Threads` and `Comments`.                                 |
+| [`serializers/`](serializers/)                                                          | Select explicit response fields instead of returning raw model objects.                                                          |
 
 ### Inherit the framework; configure the application once
 
 The inheritance paths are `BaseController → ApplicationController → ThreadsController` and `BasePolicy → ApplicationPolicy → ThreadsPolicy`, with equivalent concrete classes for comments and users.
 
-`ApplicationController` exposes the project's `currentUser` after its awaited `beforeAction()` loads the local account. The hook is supplied by Express Light Rail 0.11.0; there is no dispatch-factory override or callback registry. Request cancellation and query helpers also come from the package: actions inherit `this.signal`, `this.request.signal`, and `this.pagination`. There is no copied signal setup in each controller. Cancellation remains cooperative; it does not automatically cancel SQL or transactions.
+`ApplicationController` exposes the `currentUser` loaded by authorization middleware through `Users.LoadCurrentUserService`. Login credentials are checked by `Users.AuthenticateService`; no controller lifecycle override is needed. Request cancellation and query helpers still come from the package: actions inherit `this.signal`, `this.request.signal`, and `this.pagination`. Cancellation remains cooperative and does not automatically cancel SQL or transactions.
 
 `ApplicationPolicy` holds common authorization behavior. Concrete policies select allowed fields and determine author permissions. Controllers use inherited `permitAttributesForCreate` and `permitAttributesForUpdate`; `BasePolicy` handles `deepPick` internally. Neither controllers nor application policies need to import that utility.
 
