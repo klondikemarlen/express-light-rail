@@ -8,13 +8,20 @@ From a checkout of this repository, run these commands at the repository root, n
 
 ```sh
 npm install
-npm run build
 npm run example
 ```
 
-Use the Node.js version in [`.tool-versions`](../.tool-versions); `asdf install nodejs` installs it when using asdf. Build the package before starting the example so its `express-light-rail` imports resolve to the local build.
+Use the Node.js version in [`.tool-versions`](../.tool-versions); `asdf install nodejs` installs it when using asdf. `npm run example` builds the package, compiles the example, and starts the server, so its `express-light-rail` imports always use the current local build.
 
-The API listens at `http://localhost:3000`. To use another port, run `API_PORT=3352 npm run example` and adjust the request URLs below. The command compiles before starting; stop with Ctrl-C and restart after code changes.
+The API listens at `http://localhost:3000`. To use another port, run `API_PORT=3352 npm run example` and adjust the request URLs below.
+
+For the edit-and-restart loop, use:
+
+```sh
+npm run example:dev
+```
+
+This watches package and example TypeScript files plus their compiler configuration. Each change stops the server, rebuilds the package, compiles the example, and restarts only after compilation succeeds. Fix a compilation error and save to try again; it does not keep serving stale code. Static HTML/CSS changes only need a browser refresh. Stop either command with Ctrl-C. Without a stable `EXAMPLE_JWT_SECRET`, automatic restarts also invalidate login tokens; log in again after restarting.
 
 SQLite stores data in `.example-app/discussion-board.sqlite`, which is ignored by Git. Startup runs the ordered [initializers](initializers/): ensure the database, then select seeds for `NODE_ENV` (default `development`). Development seeds a fresh database with Alice, Bob, one welcome thread, and Bob's comment. Production and test have empty seed lists; they never create demo accounts. Restarting does not reset existing records. To explore a separate empty database, choose a new path:
 
@@ -213,7 +220,7 @@ The list queries use fixed ordering and bounded pagination, not unrestricted cli
 From the repository root:
 
 ```sh
-npm run test -- --run tests/example-app/app.test.ts
+npm run test -- --run tests/example-app
 npm run check-types
 npm run lint
 ```
