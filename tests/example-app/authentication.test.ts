@@ -10,20 +10,19 @@ import type { User } from "@example-app/models/user.js"
 let application: Express
 let database: Sequelize
 let userFactory: FactoryInterface<User>
+let cleanExampleDatabase: () => Promise<void>
 let jwtSecret: string
 let jwtIssuer: string
 let jwtAudience: string
 
-const environmentKeys = ["EXAMPLE_DATABASE_STORAGE", "EXAMPLE_JWT_SECRET"]
-const previousEnvironment = new Map<string, string | undefined>()
+let previousJwtSecret: string | undefined
 const testPassword = "test-password"
 
 beforeAll(async () => {
-  for (const key of environmentKeys) previousEnvironment.set(key, process.env[key])
-  process.env.EXAMPLE_DATABASE_STORAGE = ":memory:"
+  previousJwtSecret = process.env.EXAMPLE_JWT_SECRET
   process.env.EXAMPLE_JWT_SECRET = "test-secret-with-at-least-thirty-two-bytes"
 
-  // Load runtime configuration after setting isolated test environment values.
+  // Static imports would load JWT configuration before this credential override.
   const config = await import("@example-app/config.js")
   jwtSecret = config.JWT_SECRET
   jwtIssuer = config.JWT_ISSUER
@@ -31,28 +30,29 @@ beforeAll(async () => {
   database = (await import("@example-app/models/index.js")).db
   userFactory = (await import("@tests/example-app/factories/user-factory.js")).userFactory
   application = (await import("@example-app/app.js")).app
+  const databaseSupport = await import("@tests/support/example-database.js")
+  cleanExampleDatabase = databaseSupport.cleanExampleDatabase
+  await databaseSupport.prepareExampleDatabase()
 })
 
 beforeEach(async () => {
-  await database.sync({ force: true })
+  await cleanExampleDatabase()
 })
 
 afterAll(async () => {
   await database?.close()
-  for (const [key, value] of previousEnvironment) {
-    if (value === undefined) delete process.env[key]
-    else process.env[key] = value
-  }
+  if (previousJwtSecret === undefined) delete process.env.EXAMPLE_JWT_SECRET
+  else process.env.EXAMPLE_JWT_SECRET = previousJwtSecret
 })
 
 async function signedToken(
-  claims: { aud?: string; iss?: string; exp?: number; sub?: string } = {},
+  claims: { sub: string; aud?: string; iss?: string; exp?: number },
   secret = jwtSecret
 ): Promise<string> {
   const key = new TextEncoder().encode(secret)
   return new SignJWT({})
     .setProtectedHeader({ alg: "HS256" })
-    .setSubject(claims.sub ?? "1")
+    .setSubject(claims.sub)
     .setIssuer(claims.iss ?? jwtIssuer)
     .setAudience(claims.aud ?? jwtAudience)
     .setIssuedAt()
@@ -213,8 +213,8 @@ describe("local session authentication", () => {
 
   test("when only a query token is supplied, denies access", async () => {
     // Arrange
-    await userFactory.create({ username: "alice" })
-    const token = await signedToken()
+    const user = await userFactory.create({ username: "alice" })
+    const token = await signedToken({ sub: String(user.id) })
 
     // Act
     const response = await request(application).get("/api/users").query({ access_token: token })
@@ -232,8 +232,8 @@ describe("local session authentication", () => {
     ["wrong issuer", { iss: "another-issuer" }],
   ])("when a %s token is supplied, denies access", async (_, claims) => {
     // Arrange
-    await userFactory.create({ username: "alice" })
-    const token = await signedToken(claims)
+    const user = await userFactory.create({ username: "alice" })
+    const token = await signedToken({ ...claims, sub: String(user.id) })
 
     // Act
     const response = await request(application)
@@ -249,8 +249,11 @@ describe("local session authentication", () => {
 
   test("when a token is signed with an untrusted secret, denies access", async () => {
     // Arrange
-    await userFactory.create({ username: "alice" })
-    const token = await signedToken({}, "different-secret-with-at-least-thirty-two-bytes")
+    const user = await userFactory.create({ username: "alice" })
+    const token = await signedToken(
+      { sub: String(user.id) },
+      "different-secret-with-at-least-thirty-two-bytes"
+    )
 
     // Act
     const response = await request(application)
@@ -284,8 +287,8 @@ describe("local session authentication", () => {
 
   test("when a token is supplied in the request body, denies access", async () => {
     // Arrange
-    await userFactory.create({ username: "alice" })
-    const token = await signedToken()
+    const user = await userFactory.create({ username: "alice" })
+    const token = await signedToken({ sub: String(user.id) })
 
     // Act
     const response = await request(application).post("/api/threads").type("form").send({

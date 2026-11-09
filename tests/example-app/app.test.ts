@@ -1,31 +1,20 @@
 import request from "supertest"
-import { afterAll, beforeEach, describe, expect, test, vi } from "vitest"
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest"
 
-const { originalStorage } = vi.hoisted(() => {
-  const originalStorage = process.env.EXAMPLE_DATABASE_STORAGE
-  process.env.EXAMPLE_DATABASE_STORAGE = ":memory:"
-  return { originalStorage }
-})
-
-import { Comment, db } from "@example-app/models/index.js"
+import { Comment, db, Thread } from "@example-app/models/index.js"
 
 import { commentFactory } from "@tests/example-app/factories/comment-factory.js"
 import { threadFactory } from "@tests/example-app/factories/thread-factory.js"
 import { userFactory } from "@tests/example-app/factories/user-factory.js"
+import { cleanExampleDatabase, prepareExampleDatabase } from "@tests/support/example-database.js"
 
 import { app } from "@example-app/app.js"
 
-beforeEach(async () => {
-  await db.sync({ force: true })
-})
+beforeAll(prepareExampleDatabase)
+beforeEach(cleanExampleDatabase)
 
 afterAll(async () => {
   await db.close()
-  if (originalStorage === undefined) {
-    delete process.env.EXAMPLE_DATABASE_STORAGE
-  } else {
-    process.env.EXAMPLE_DATABASE_STORAGE = originalStorage
-  }
 })
 
 const testPassword = "test-password"
@@ -80,7 +69,7 @@ describe("discussion board", () => {
     const token = await login(author.username)
     const existingThread = await threadFactory.create()
     const route = request(app).post("/api/threads").set("Authorization", `Bearer ${token}`).send({
-      id: 99,
+      id: existingThread.id,
       authorId: existingThread.authorId,
       title: "A new discussion",
       body: "What are you building?",
@@ -91,9 +80,14 @@ describe("discussion board", () => {
 
     // Assert
     expect(response.status).toBe(201)
+    const createdThread = await Thread.findOne({
+      where: { title: "A new discussion" },
+      rejectOnEmpty: true,
+    })
+    expect(createdThread.id).not.toBe(existingThread.id)
     expect(response.body).toEqual({
       thread: {
-        id: 2,
+        id: createdThread.id,
         authorId: author.id,
         title: "A new discussion",
         body: "What are you building?",
@@ -253,8 +247,9 @@ describe("discussion board", () => {
     // Arrange
     const reader = await userFactory.create()
     const token = await login(reader.username)
+    const thread = await threadFactory.create()
     const route = request(app)
-      .get("/api/threads/1/comments/not-an-id")
+      .get(`/api/threads/${thread.id}/comments/not-an-id`)
       .set("Authorization", `Bearer ${token}`)
 
     // Act
@@ -278,12 +273,13 @@ describe("discussion board", () => {
     })
     const token = await login(author.username)
     const thread = await threadFactory.create()
+    const existingComment = await commentFactory.create({ threadId: thread.id })
     const route = request(app)
       .post(`/api/threads/${thread.id}/comments`)
       .set("Authorization", `Bearer ${token}`)
       .send({
         body: "I am building a discussion board.",
-        id: 99,
+        id: existingComment.id,
         authorId: thread.authorId,
         threadId: 999,
       })
@@ -293,9 +289,14 @@ describe("discussion board", () => {
 
     // Assert
     expect(response.status).toBe(201)
+    const createdComment = await Comment.findOne({
+      where: { body: "I am building a discussion board." },
+      rejectOnEmpty: true,
+    })
+    expect(createdComment.id).not.toBe(existingComment.id)
     expect(response.body).toEqual({
       comment: {
-        id: 1,
+        id: createdComment.id,
         body: "I am building a discussion board.",
         authorId: author.id,
         threadId: thread.id,
@@ -525,9 +526,13 @@ describe("discussion board", () => {
 
     // Assert
     expect(response.status).toBe(201)
+    const createdThread = await Thread.findOne({
+      where: { title: "A form discussion" },
+      rejectOnEmpty: true,
+    })
     expect(response.body).toEqual({
       thread: {
-        id: 1,
+        id: createdThread.id,
         authorId: author.id,
         title: "A form discussion",
         body: "URL-encoded content",
@@ -552,9 +557,13 @@ describe("discussion board", () => {
 
     // Assert
     expect(response.status).toBe(201)
+    const createdThread = await Thread.findOne({
+      where: { title: "A multipart discussion" },
+      rejectOnEmpty: true,
+    })
     expect(response.body).toEqual({
       thread: {
-        id: 1,
+        id: createdThread.id,
         authorId: author.id,
         title: "A multipart discussion",
         body: "Text fields without file uploads",
