@@ -19,7 +19,7 @@ export async function prepareExampleDatabase(): Promise<void> {
 export async function cleanExampleDatabase(): Promise<void> {
   assertTestDatabase()
 
-  await Comment.destroy({ where: {} })
-  await Thread.destroy({ where: {} })
-  await User.destroy({ where: {} })
+  await Comment.destroy({ where: {}, force: true })
+  await Thread.destroy({ where: {}, force: true })
+  await User.destroy({ where: {}, force: true })
 }

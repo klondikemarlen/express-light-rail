@@ -1,5 +1,5 @@
 import { DataTypes, EmptyResultError, Model, Sequelize, type ModelStatic } from "@sequelize/core"
-import { MsSqlDialect } from "@sequelize/mssql"
+import { PostgresDialect } from "@sequelize/postgres"
 
 import { reloadWithScope, withScope } from "@/model-helpers/index.js"
 
@@ -47,16 +47,12 @@ function createTestDatabase() {
   }
 
   return new Sequelize({
-    dialect: MsSqlDialect,
-    server: DATABASE_HOST,
+    dialect: PostgresDialect,
+    host: DATABASE_HOST,
     port: DATABASE_PORT,
     database: DATABASE_NAME,
-    authentication: {
-      type: "default",
-      options: { userName: DATABASE_USERNAME, password: DATABASE_PASSWORD },
-    },
-    encrypt: true,
-    trustServerCertificate: true,
+    user: DATABASE_USERNAME,
+    password: DATABASE_PASSWORD,
     logging: false,
   })
 }
@@ -127,11 +123,13 @@ describe("model helpers", () => {
   beforeAll(ensureDatabase)
 
   beforeEach(async () => {
-    await sequelize.sync({ force: true })
+    await ReloadRecord.sync({ force: true })
+    await CompositeRecord.sync({ force: true })
   })
 
   afterAll(async () => {
-    await sequelize.drop()
+    await CompositeRecord.drop()
+    await ReloadRecord.drop()
     await sequelize.close()
   })
 

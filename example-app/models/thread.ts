@@ -53,6 +53,10 @@ export class Thread extends Model<InferAttributes<Thread>, InferCreationAttribut
   @NotNull
   declare authorId: number
 
+  declare createdAt: CreationOptional<Date>
+  declare updatedAt: CreationOptional<Date>
+  declare deletedAt: CreationOptional<Date | null>
+
   @BelongsTo(() => User, {
     foreignKey: {
       name: "authorId",

@@ -4,11 +4,14 @@ export async function up(database: Knex): Promise<void> {
   await database.schema.createTable("comments", (table) => {
     table.increments("id").primary()
     table.text("body").notNullable()
-    table.integer("authorId").notNullable()
-    table.integer("threadId").notNullable()
+    table.integer("author_id").notNullable()
+    table.integer("thread_id").notNullable()
+    table.timestamp("created_at", { useTz: true }).notNullable().defaultTo(database.fn.now())
+    table.timestamp("updated_at", { useTz: true }).notNullable().defaultTo(database.fn.now())
+    table.timestamp("deleted_at", { useTz: true }).nullable()
 
-    table.foreign("authorId").references("users.id")
-    table.foreign("threadId").references("threads.id").onDelete("CASCADE")
+    table.foreign("author_id").references("users.id")
+    table.foreign("thread_id").references("threads.id").onDelete("CASCADE")
   })
 }
 

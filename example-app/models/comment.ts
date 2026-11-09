@@ -47,6 +47,10 @@ export class Comment extends Model<InferAttributes<Comment>, InferCreationAttrib
   @NotNull
   declare threadId: number
 
+  declare createdAt: CreationOptional<Date>
+  declare updatedAt: CreationOptional<Date>
+  declare deletedAt: CreationOptional<Date | null>
+
   @BelongsTo(() => User, {
     foreignKey: {
       name: "authorId",

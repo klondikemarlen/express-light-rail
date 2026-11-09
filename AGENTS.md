@@ -87,7 +87,7 @@ Route design:
 
 ## Commands
 
-Use Docker Compose through `bin/dev` for development and package verification. The example follows the host applications' SQL Server and Knex migration conventions; do not add SQLite, in-memory databases, or a parallel native-host development path.
+Use Docker Compose through `bin/dev` for development and package verification. The example uses PostgreSQL with WRAP-style Knex migrations, underscored database columns, timestamps, and paranoid models; do not add SQLite, in-memory databases, or a parallel native-host development path.
 
 ```bash
 bin/dev build app

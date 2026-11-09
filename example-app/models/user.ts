@@ -65,6 +65,10 @@ export class User extends Model<InferAttributes<User>, InferCreationAttributes<U
   })
   declare password: CreationOptional<string | undefined>
 
+  declare createdAt: CreationOptional<Date>
+  declare updatedAt: CreationOptional<Date>
+  declare deletedAt: CreationOptional<Date | null>
+
   // Hooks
   @BeforeSave
   static async hashNewPassword(user: User): Promise<void> {

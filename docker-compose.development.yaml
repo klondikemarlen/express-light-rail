@@ -2,10 +2,14 @@ x-default-environment: &default-environment
   TZ: UTC
   NODE_ENV: development
   DB_HOST: db
-  DB_PORT: 1433
+  DB_PORT: 5432
   DB_NAME: express_light_rail_development
-  DB_USER: sa
+  DB_USER: &database-username express_light_rail
   DB_PASS: &database-password DevPwd99!
+  DB_POOL_MAX: "${DB_POOL_MAX:-5}"
+  DB_POOL_MIN: "${DB_POOL_MIN:-0}"
+  DB_POOL_ACQUIRE_MS: "${DB_POOL_ACQUIRE_MS:-30000}"
+  DB_POOL_IDLE_MS: "${DB_POOL_IDLE_MS:-10000}"
   EXAMPLE_JWT_SECRET: "${EXAMPLE_JWT_SECRET:-}"
 
 services:
@@ -47,18 +51,15 @@ services:
         condition: service_healthy
 
   db:
-    image: mcr.microsoft.com/mssql/server:2025-CU7-ubuntu-24.04
+    image: postgres:18-alpine
     environment:
-      ACCEPT_EULA: "Y"
-      MSSQL_SA_PASSWORD: *database-password
+      POSTGRES_USER: *database-username
+      POSTGRES_PASSWORD: *database-password
+      POSTGRES_DB: postgres
     volumes:
-      - db_data:/var/opt/mssql
+      - postgres_data:/var/lib/postgresql
     healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          '/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$$MSSQL_SA_PASSWORD" -C -Q "SELECT 1" -b -o /dev/null',
-        ]
+      test: ["CMD-SHELL", 'pg_isready -U "$$POSTGRES_USER" -d postgres']
       interval: 5s
       timeout: 5s
       retries: 30
@@ -73,5 +74,5 @@ services:
       PLANTUML_LIMIT_SIZE: 8192
 
 volumes:
-  db_data:
+  postgres_data:
   node_modules:
