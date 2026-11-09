@@ -89,7 +89,7 @@
     "clean": "rm -rf ./dist",
     "build": "npm run clean && vite build",
     "preexample": "tsc --noEmit && npm run build",
-    "example": "tsc -p example-app/tsconfig.json && tsc-alias -p example-app/tsconfig.json && node .example-app/server.js",
+    "example": "rm -rf .example-app/db/migrations && tsc -p example-app/tsconfig.json && tsc-alias -p example-app/tsconfig.json && node .example-app/server.js",
     "example:dev": "nodemon --signal SIGTERM --watch src --watch example-app --watch tsconfig.json --ext ts,json --exec \"npm run example\"",
     "test": "vitest",
     "prepublishOnly": "npm run check-types && npm run test -- --run && npm run build",
