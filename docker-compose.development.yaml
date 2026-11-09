@@ -6,6 +6,7 @@ x-default-environment: &default-environment
   DB_NAME: express_light_rail_development
   DB_USER: sa
   DB_PASS: &database-password DevPwd99!
+  EXAMPLE_JWT_SECRET: "${EXAMPLE_JWT_SECRET:-}"
 
 services:
   app:
