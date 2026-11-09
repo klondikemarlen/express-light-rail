@@ -5,13 +5,9 @@ export async function up(database: Knex): Promise<void> {
     table.increments("id").primary()
     table.string("title", 255).notNullable()
     table.text("body").notNullable()
-    table
-      .integer("authorId")
-      .notNullable()
-      .references("id")
-      .inTable("users")
-      .onDelete("NO ACTION")
-      .onUpdate("NO ACTION")
+    table.integer("authorId").notNullable()
+
+    table.foreign("authorId").references("users.id")
   })
 }
 
