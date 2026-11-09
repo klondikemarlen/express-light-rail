@@ -79,7 +79,7 @@ export class User extends Model<InferAttributes<User>, InferCreationAttributes<U
     user.setDataValue("password", undefined)
   }
 
-  // Authentication
+  // Helper Methods
   async authenticate(password: string): Promise<User | false> {
     const passwordMatches = await verifyPassword(password, this.passwordHash || DUMMY_PASSWORD_HASH)
     if (!this.passwordHash || !passwordMatches) return false
