@@ -3,6 +3,8 @@ import { SqliteDialect } from "@sequelize/sqlite3"
 
 import { DATABASE_STORAGE } from "@example-app/config.js"
 
+const isInMemoryDatabase = DATABASE_STORAGE === ":memory:"
+
 export const db = new Sequelize({
   dialect: SqliteDialect,
 
@@ -10,10 +12,13 @@ export const db = new Sequelize({
 
   logging: false,
 
+  // In-memory SQLite loses its entire database when its sole connection closes.
   pool: {
     max: 1,
-    idle: Infinity,
-    maxUses: Infinity,
+    min: 0,
+    acquire: 30_000,
+    idle: isInMemoryDatabase ? Infinity : 10_000,
+    maxUses: isInMemoryDatabase ? Infinity : 1_000,
   },
 
   define: {
