@@ -1,6 +1,6 @@
 # Discussion board example
 
-Build a small Rails-style API with Express Light Rail: users start discussion threads, add comments, and edit or delete their own posts. The example uses Sequelize and SQL Server through Docker Compose, following the same development shape as WRAP and ELCC.
+Build a small Rails-style API with Express Light Rail: users start discussion threads, add comments, and edit or delete their own posts. The example uses Sequelize and PostgreSQL through Docker Compose, following WRAP's application structure and database conventions.
 
 ## Run the app
 
@@ -16,11 +16,15 @@ The API listens at `http://localhost:3000`. To use another host port, run `API_P
 
 The application container runs the watched example command. Saving package or example TypeScript rebuilds and restarts the server; compilation errors stop it until corrected. Static HTML/CSS changes only need a browser refresh. Use `bin/dev npm ci` after dependency changes and `bin/dev down` to stop the project without deleting its database volume. Without a stable `EXAMPLE_JWT_SECRET`, restarts invalidate login tokens.
 
-Startup runs ordered [initializers](initializers/): ensure the SQL Server database, run pending Knex migrations, then select seeds for `NODE_ENV`. Development seeds an empty database with Alice, Bob, one welcome thread, and Bob's comment. Production and test have empty seed lists; they never create demo accounts. Subsequent startups preserve existing records.
+Startup runs ordered [initializers](initializers/): ensure the PostgreSQL database, run pending Knex migrations, then select seeds for `NODE_ENV`. Development seeds an empty database with Alice, Bob, one welcome thread, and Bob's comment. Production and test do not run demo seeds. Subsequent startups preserve existing records, including soft-deleted users.
 
 Each [migration](db/migrations/) creates one table: users, then threads, then comments, in foreign-key dependency order. Each `down` drops only that migration's table, so rollback runs in reverse order. After migrations have been applied in a shared environment, add new migrations for schema changes rather than editing applied history.
 
-Compose owns the development database connection and persistent `db_data` volume. The pool allows five connections, with a 30-second acquisition timeout and a 10-second idle timeout. Tests use the separate `express_light_rail_test` database. There is no in-memory database path or schema repair during startup.
+Compose owns the development database connection and persistent `postgres_data` volume. The pool defaults to five connections, with a 30-second acquisition timeout and a 10-second idle timeout; `DB_POOL_MAX`, `DB_POOL_MIN`, `DB_POOL_ACQUIRE_MS`, and `DB_POOL_IDLE_MS` configure it. Tests use the separate `express_light_rail_test` database. There is no in-memory database path or schema repair during startup.
+
+Database columns use snake_case; TypeScript attributes and API fields remain camelCase. All models have `createdAt`, `updatedAt`, and nullable `deletedAt` timestamps. Normal Sequelize queries exclude soft-deleted records. `Threads.DestroyService` soft-deletes a thread and its comments in one transaction; deleting a comment affects only that comment. The API does not expose restoration or permanent deletion.
+
+This draft replaces the earlier SQL Server example. PostgreSQL uses a separate volume; existing SQL Server data is neither migrated nor deleted. Rebuild the application image and run `bin/dev npm ci` when updating an existing checkout.
 
 ## Application boundary and authentication
 
@@ -72,7 +76,7 @@ export ALICE_TOKEN='<Alice accessToken>'
 export BOB_TOKEN='<Bob accessToken>'
 ```
 
-Both users can read discussions and create posts. Only a post's author can update or delete it. Owning a thread does not grant permission to edit somebody else's comments. Deleting a thread also deletes its comments through the database relationship. User endpoints are read-only; account administration is outside this example.
+Both users can read discussions and create posts. Only a post's author can update or delete it. Owning a thread does not grant permission to edit somebody else's comments. Deleting a thread soft-deletes its comments in the same transaction. User endpoints are read-only; account administration is outside this example.
 
 In a second terminal:
 
@@ -170,7 +174,7 @@ curl -i -X DELETE -H "Authorization: Bearer $BOB_TOKEN" http://localhost:3000/ap
 curl -i -X DELETE -H "Authorization: Bearer $ALICE_TOKEN" http://localhost:3000/api/threads/2
 ```
 
-Both return HTTP 204 with no body. A subsequent GET returns 404. If a thread still has comments when its author deletes it, the database removes those comments too.
+Both return HTTP 204 with no body. A subsequent GET returns 404. If a thread still has comments when its author deletes it, the service soft-deletes those comments too. The rows remain stored with `deleted_at` timestamps but are hidden from ordinary reads.
 
 ## Follow the application structure
 
@@ -178,7 +182,7 @@ Both return HTTP 204 with no body. A subsequent GET returns 404. If a thread sti
 | --------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
 | [`app.ts`](app.ts)                                                                      | Compose parsing, security, API routing, frontend hosting, and error handling.                                                    |
 | [`server.ts`](server.ts)                                                                | Run application initialization, then start HTTP.                                                                                 |
-| [`db/db-client.ts`](db/db-client.ts)                                                    | Configure the SQL Server model connection without importing models.                                                              |
+| [`db/db-client.ts`](db/db-client.ts)                                                    | Configure the PostgreSQL model connection, pool, SQL logging, and shared model defaults without importing models.                |
 | [`models/`](models/)                                                                    | Declare attributes, validation, and relationships with Sequelize decorators; register models once in `models/index.ts`.          |
 | [`initializers/`](initializers/)                                                        | Ensure the database, apply migrations, then run environment-specific seeds.                                                      |
 | [`db/migrations/`](db/migrations/)                                                      | Own versioned schema changes with explicit `up` and `down` operations.                                                           |
@@ -186,7 +190,7 @@ Both return HTTP 204 with no body. A subsequent GET returns 404. If a thread sti
 | [`router.ts`](router.ts)                                                                | Bind Express-native resource routes.                                                                                             |
 | [`controllers/`](controllers/)                                                          | Expose middleware-established currentUser and orchestrate resource reads, authorization, services, serialization, and responses. |
 | [`policies/`](policies/)                                                                | Own author permissions and attribute allow-lists.                                                                                |
-| [`services/threads/`](services/threads/) and [`services/comments/`](services/comments/) | Group each resource's `CreateService` and `UpdateService`, exported as `Threads` and `Comments`.                                 |
+| [`services/threads/`](services/threads/) and [`services/comments/`](services/comments/) | Group resource mutation services; thread deletion owns the transaction that soft-deletes its comments.                           |
 | [`serializers/`](serializers/)                                                          | Select explicit response fields instead of returning raw model objects.                                                          |
 
 ### Inherit the framework; configure the application once
@@ -227,4 +231,4 @@ bin/dev npm run lint
 
 The tests arrange users, threads, and comments with [Factory Shark factories](../tests/example-app/factories/), using real Sequelize records. Each test owns its data; the application's startup seeds are not shared test fixtures. See [the testing guide](../tests/README.md#discussion-board-factories) for factory usage and the pinned development ORM/dialect versions. Factory Shark is test tooling, not an application runtime requirement.
 
-Application tests use the Compose-selected SQL Server test database. They apply the same migrations as development, then clean scenario records between tests without dropping the schema. For the framework's individual conventions, see the [controller](../src/base-controller/README.md), [policy](../src/base-policy/README.md), [service](../src/base-service/README.md), and [serializer](../src/base-serializer/README.md) guides. Jobs and channels are separate examples in the [jobs](../docs/jobs.md) and [channels](../docs/channels.md) guides. Existing applications should follow the [incremental adoption guide](../docs/adoption.md) rather than replacing their authentication with this demo.
+Application tests use the Compose-selected PostgreSQL test database. They apply the same migrations as development, then permanently remove scenario records, including soft-deleted rows, between tests without dropping the schema. For the framework's individual conventions, see the [controller](../src/base-controller/README.md), [policy](../src/base-policy/README.md), [service](../src/base-service/README.md), and [serializer](../src/base-serializer/README.md) guides. Jobs and channels are separate examples in the [jobs](../docs/jobs.md) and [channels](../docs/channels.md) guides. Existing applications should follow the [incremental adoption guide](../docs/adoption.md) rather than replacing their authentication with this demo.

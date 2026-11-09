@@ -10,7 +10,7 @@ Path aliases use `compilerOptions.paths` targets relative to the configuration f
 
 ## Discussion-board factories
 
-The example's request tests use [Factory Shark](https://github.com/klondikemarlen/factory-shark) factories in [`example-app/factories/`](example-app/factories/), backed by real Sequelize models and the Compose-selected SQL Server test database. The development ORM and SQL Server dialect are pinned together at `7.0.0-alpha.48`, the Sequelize 7 release supported by Factory Shark `2.0.0`. These are development dependencies; Factory Shark is not a package runtime dependency or public export, and the package's Sequelize peer range remains unchanged.
+The example's request tests use [Factory Shark](https://github.com/klondikemarlen/factory-shark) factories in [`example-app/factories/`](example-app/factories/), backed by real Sequelize models and the Compose-selected PostgreSQL test database. The development ORM and PostgreSQL dialect are pinned together at `7.0.0-alpha.48`, the Sequelize 7 release supported by Factory Shark `2.0.0`. These are development dependencies; Factory Shark is not a package runtime dependency or public export, and the package's Sequelize peer range remains unchanged.
 
 Arrange records inside each test. Shared hooks run migrations and delete scenario records without resetting identities; they do not create scenario data or call the runnable application's seed function. For example:
 

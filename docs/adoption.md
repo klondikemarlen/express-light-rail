@@ -101,7 +101,7 @@ behavior. Transaction boundaries remain host-owned.
 
 For a guided introduction to running the app and following its request flow, start with the [example application walkthrough](../example-app/README.md).
 
-[`example-app/`](https://github.com/klondikemarlen/express-light-rail/tree/main/example-app) is a SQL Server-backed discussion board with users, threads, and comments. It demonstrates full thread/comment CRUD, Express-native routes, a shared `ApplicationController`, inherited policy attribute filtering through `ApplicationPolicy`, author-only mutations, services, serializers, and safe error handling. Run from a repository checkout using Docker Compose:
+[`example-app/`](https://github.com/klondikemarlen/express-light-rail/tree/main/example-app) is a PostgreSQL-backed discussion board with users, threads, and comments. It demonstrates full thread/comment CRUD, Express-native routes, a shared `ApplicationController`, inherited policy attribute filtering through `ApplicationPolicy`, author-only mutations, transactional soft deletion, services, serializers, and safe error handling. Run from a repository checkout using Docker Compose:
 
 ```sh
 bin/dev build app
