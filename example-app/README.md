@@ -18,6 +18,8 @@ The application container runs the watched example command. Saving package or ex
 
 Startup runs ordered [initializers](initializers/): ensure the SQL Server database, run pending Knex migrations, then select seeds for `NODE_ENV`. Development seeds an empty database with Alice, Bob, one welcome thread, and Bob's comment. Production and test have empty seed lists; they never create demo accounts. Subsequent startups preserve existing records.
 
+Each [migration](db/migrations/) creates one table: users, then threads, then comments, in foreign-key dependency order. Each `down` drops only that migration's table, so rollback runs in reverse order. After migrations have been applied in a shared environment, add new migrations for schema changes rather than editing applied history.
+
 Compose owns the development database connection and persistent `db_data` volume. The pool allows five connections, with a 30-second acquisition timeout and a 10-second idle timeout. Tests use the separate `express_light_rail_test` database. There is no in-memory database path or schema repair during startup.
 
 ## Application boundary and authentication
