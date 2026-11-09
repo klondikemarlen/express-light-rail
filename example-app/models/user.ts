@@ -65,6 +65,7 @@ export class User extends Model<InferAttributes<User>, InferCreationAttributes<U
   })
   declare password: CreationOptional<string | undefined>
 
+  // Hooks
   @BeforeSave
   static async hashNewPassword(user: User): Promise<void> {
     const { password } = user
@@ -78,6 +79,7 @@ export class User extends Model<InferAttributes<User>, InferCreationAttributes<U
     user.setDataValue("password", undefined)
   }
 
+  // Authentication
   async authenticate(password: string): Promise<User | false> {
     const passwordMatches = await verifyPassword(password, this.passwordHash || DUMMY_PASSWORD_HASH)
     if (!this.passwordHash || !passwordMatches) return false
