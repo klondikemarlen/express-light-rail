@@ -1,5 +1,4 @@
 import { db, Comment, Thread, User } from "@example-app/models/index.js"
-import { hashPassword } from "@example-app/utils/password.js"
 
 export async function seed(): Promise<void> {
   await db.transaction(async () => {
@@ -12,14 +11,14 @@ export async function seed(): Promise<void> {
       id: 1,
       username: "alice",
       name: "Alice",
-      passwordHash: await hashPassword("alice-password"),
+      password: "alice-password",
     })
 
     await User.create({
       id: 2,
       username: "bob",
       name: "Bob",
-      passwordHash: await hashPassword("bob-password"),
+      password: "bob-password",
     })
 
     await Thread.create({
