@@ -1,6 +1,6 @@
 # Tests and development tooling
 
-This package uses Vitest, not Jest. Run tests through `bin/dev test -- --run` so Compose selects the test database. The Vite configuration owns mock clearing, reset, restore, and stub cleanup. Database suites prepare the example's SQL Server database with its production migration path and clean their scenario records between tests; unrelated unit tests do not acquire database hooks.
+This package uses Vitest, not Jest. Run tests through `bin/dev test -- --run` so Compose selects the test database. The Vite configuration owns mock clearing, reset, restore, and stub cleanup. Database suites prepare the example's PostgreSQL database with its production migration path and permanently remove their scenario records, including soft-deleted rows, between tests; unrelated unit tests do not acquire database hooks.
 
 Test files live under `tests/` and mirror `src/`; use `{filename}.test.ts`. Keep behavior tests close to the source responsibility they exercise. Use `describe`/`test` and Arrange/Act/Assert comments for behavioral cases. Prefer assertions about externally observable behavior over configuration snapshots or private implementation details.
 
