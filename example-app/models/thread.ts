@@ -56,7 +56,8 @@ export class Thread extends Model<InferAttributes<Thread>, InferCreationAttribut
   @BelongsTo(() => User, {
     foreignKey: {
       name: "authorId",
-      onDelete: "RESTRICT",
+      onDelete: "NO ACTION",
+      onUpdate: "NO ACTION",
     },
     inverse: {
       type: "hasMany",

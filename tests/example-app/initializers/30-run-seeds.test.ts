@@ -1,31 +1,18 @@
-import { afterAll, beforeEach, describe, expect, test, vi } from "vitest"
-
-const { originalStorage } = vi.hoisted(() => {
-  const originalStorage = process.env.EXAMPLE_DATABASE_STORAGE
-  process.env.EXAMPLE_DATABASE_STORAGE = ":memory:"
-  return {
-    originalStorage,
-  }
-})
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest"
 
 import { db, Comment, Thread, User } from "@example-app/models/index.js"
 
 import { threadFactory } from "@tests/example-app/factories/thread-factory.js"
 import { userFactory } from "@tests/example-app/factories/user-factory.js"
+import { cleanExampleDatabase, prepareExampleDatabase } from "@tests/support/example-database.js"
 
 import { runSeeds } from "@example-app/initializers/30-run-seeds.js"
 
-beforeEach(async () => {
-  await db.sync({ force: true })
-})
+beforeAll(prepareExampleDatabase)
+beforeEach(cleanExampleDatabase)
 
 afterAll(async () => {
   await db.close()
-  if (originalStorage === undefined) {
-    delete process.env.EXAMPLE_DATABASE_STORAGE
-  } else {
-    process.env.EXAMPLE_DATABASE_STORAGE = originalStorage
-  }
 })
 
 describe("environment-specific seeds", () => {

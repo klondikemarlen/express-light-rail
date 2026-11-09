@@ -1,21 +1,14 @@
-import { afterAll, beforeEach, describe, expect, test, vi } from "vitest"
-
-const { originalStorage } = vi.hoisted(() => {
-  const originalStorage = process.env.EXAMPLE_DATABASE_STORAGE
-  process.env.EXAMPLE_DATABASE_STORAGE = ":memory:"
-  return { originalStorage }
-})
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest"
 
 import { db, User } from "@example-app/models/index.js"
 
-beforeEach(async () => {
-  await db.sync({ force: true })
-})
+import { cleanExampleDatabase, prepareExampleDatabase } from "@tests/support/example-database.js"
+
+beforeAll(prepareExampleDatabase)
+beforeEach(cleanExampleDatabase)
 
 afterAll(async () => {
   await db.close()
-  if (originalStorage === undefined) delete process.env.EXAMPLE_DATABASE_STORAGE
-  else process.env.EXAMPLE_DATABASE_STORAGE = originalStorage
 })
 
 describe("User passwords", () => {
