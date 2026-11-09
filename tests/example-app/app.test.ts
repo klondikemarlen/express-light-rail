@@ -384,7 +384,7 @@ describe("discussion board", () => {
     expect(response.text).toBe("")
   })
 
-  test("when an author deletes a thread, removes its comments through the model relationship", async () => {
+  test("when an author deletes a thread, hides the thread and its comments while retaining their rows", async () => {
     // Arrange
     const author = await userFactory.create({
       username: "alice",
@@ -393,23 +393,37 @@ describe("discussion board", () => {
     const thread = await threadFactory.create({
       authorId: author.id,
     })
-    await commentFactory.create({
+    const comment = await commentFactory.create({
       threadId: thread.id,
     })
+    const otherComment = await commentFactory.create()
     const route = request(app)
       .delete(`/api/threads/${thread.id}`)
       .set("Authorization", `Bearer ${token}`)
 
     // Act
-    await route
-    const comments = await Comment.findAll({
-      where: {
-        threadId: thread.id,
-      },
-    })
+    const response = await route
+    const deletedThreadResponse = await request(app)
+      .get(`/api/threads/${thread.id}`)
+      .set("Authorization", `Bearer ${token}`)
+    const deletedCommentResponse = await request(app)
+      .get(`/api/threads/${thread.id}/comments/${comment.id}`)
+      .set("Authorization", `Bearer ${token}`)
 
     // Assert
-    expect(comments).toEqual([])
+    expect(response.status).toBe(204)
+    expect(deletedThreadResponse.status).toBe(404)
+    expect(deletedCommentResponse.status).toBe(404)
+    expect(await Thread.findByPk(thread.id)).toBeNull()
+    expect(await Comment.findByPk(comment.id)).toBeNull()
+    const deletedThread = await Thread.findByPk(thread.id, { paranoid: false, rejectOnEmpty: true })
+    const deletedComment = await Comment.findByPk(comment.id, {
+      paranoid: false,
+      rejectOnEmpty: true,
+    })
+    expect(deletedThread.deletedAt).toBeInstanceOf(Date)
+    expect(deletedComment.deletedAt).toBeInstanceOf(Date)
+    expect(await Comment.findByPk(otherComment.id)).toMatchObject({ deletedAt: null })
   })
 
   test("when a bearer token is missing, denies access", async () => {

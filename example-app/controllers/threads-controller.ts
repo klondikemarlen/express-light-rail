@@ -3,7 +3,11 @@ import { BaseApiError } from "express-light-rail"
 
 import { Thread } from "@example-app/models/index.js"
 import { ThreadsPolicy } from "@example-app/policies/index.js"
-import { CreateService, UpdateService } from "@example-app/services/threads/index.js"
+import {
+  CreateService,
+  DestroyService,
+  UpdateService,
+} from "@example-app/services/threads/index.js"
 import { ShowSerializer } from "@example-app/serializers/threads/index.js"
 
 import { ApplicationController } from "@example-app/controllers/application-controller.js"
@@ -82,7 +86,7 @@ export class ThreadsController extends ApplicationController<Thread> {
       throw new BaseApiError("forbidden", "Forbidden", {}, 403)
     }
 
-    await thread.destroy()
+    await DestroyService.perform(thread)
     return this.response.status(204).send()
   }
 
