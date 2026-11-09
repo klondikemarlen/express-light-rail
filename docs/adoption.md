@@ -101,10 +101,11 @@ behavior. Transaction boundaries remain host-owned.
 
 For a guided introduction to running the app and following its request flow, start with the [example application walkthrough](../example-app/README.md).
 
-[`example-app/`](https://github.com/klondikemarlen/express-light-rail/tree/main/example-app) is a SQLite-backed discussion board with users, threads, and comments. It demonstrates full thread/comment CRUD, Express-native routes, a shared `ApplicationController`, inherited policy attribute filtering through `ApplicationPolicy`, author-only mutations, services, serializers, and safe error handling. Run from a repository checkout after installing dependencies and building the package:
+[`example-app/`](https://github.com/klondikemarlen/express-light-rail/tree/main/example-app) is a SQL Server-backed discussion board with users, threads, and comments. It demonstrates full thread/comment CRUD, Express-native routes, a shared `ApplicationController`, inherited policy attribute filtering through `ApplicationPolicy`, author-only mutations, services, serializers, and safe error handling. Run from a repository checkout using Docker Compose:
 
 ```sh
-npm run example
+bin/dev build app
+bin/dev up -d app
 ```
 
 Log in with the seeded credentials described in the [walkthrough](../example-app/README.md), then use the returned bearer token:
@@ -114,7 +115,7 @@ curl -H "Authorization: Bearer $ALICE_TOKEN" http://localhost:3000/api/threads
 curl -H "Authorization: Bearer $BOB_TOKEN" http://localhost:3000/api/threads/1/comments
 ```
 
-Follow the [walkthrough](../example-app/README.md) for login, create, update, delete, forbidden, validation, and nested-resource scenarios. Startup seeds only a fresh development database; changes survive restarts. Password hashes and 15-minute bearer JWTs are owned by the example, not the framework. This local SQLite example is not a migration of WRAP, Travel Authorization, or ELCC.
+Follow the [walkthrough](../example-app/README.md) for login, create, update, delete, forbidden, validation, and nested-resource scenarios. Startup runs versioned migrations and seeds only an empty development database; changes survive restarts. Password hashes and 15-minute bearer JWTs are owned by the example, not the framework. This example is not a migration of WRAP, Travel Authorization, or ELCC.
 
 ## Consumer-shaped cutover fixtures and artifact smoke
 

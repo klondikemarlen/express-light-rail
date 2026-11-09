@@ -10,9 +10,9 @@ Path aliases use `compilerOptions.paths` targets relative to the configuration f
 
 ## Discussion-board factories
 
-The example's request tests use [Factory Shark](https://github.com/klondikemarlen/factory-shark) factories in [`example-app/factories/`](example-app/factories/), backed by real Sequelize models and an isolated in-memory SQLite database. The development ORM and SQLite dialect are pinned together at `7.0.0-alpha.48`, the Sequelize 7 release supported by Factory Shark `2.0.0`. These are development dependencies; Factory Shark is not a package runtime dependency or public export, and the package's Sequelize peer range remains unchanged.
+The example's request tests use [Factory Shark](https://github.com/klondikemarlen/factory-shark) factories in [`example-app/factories/`](example-app/factories/), backed by real Sequelize models and the Compose-selected SQL Server test database. The development ORM and SQL Server dialect are pinned together at `7.0.0-alpha.48`, the Sequelize 7 release supported by Factory Shark `2.0.0`. These are development dependencies; Factory Shark is not a package runtime dependency or public export, and the package's Sequelize peer range remains unchanged.
 
-Arrange records inside each test. Shared hooks reset the schema but do not create scenario data or call the runnable application's seed function. For example:
+Arrange records inside each test. Shared hooks run migrations and delete scenario records without resetting identities; they do not create scenario data or call the runnable application's seed function. For example:
 
 ```ts
 import { commentFactory } from "@tests/example-app/factories/comment-factory.js"
@@ -31,7 +31,7 @@ const comment = await commentFactory.create({
 })
 ```
 
-`create()` persists real records. Without parent overrides, thread and comment factories create their declared `belongsTo` associations; supplying existing foreign keys reuses those records. `build()` returns unsaved models without database writes. Keep these factories pointed at disposable test persistence, not the runnable application's file database.
+`create()` persists real records. Without parent overrides, thread and comment factories create their declared `belongsTo` associations; supplying existing foreign keys reuses those records. `build()` returns unsaved models without database writes. Keep these factories pointed at the dedicated test database, never the application's development database.
 
 ## Commands
 
