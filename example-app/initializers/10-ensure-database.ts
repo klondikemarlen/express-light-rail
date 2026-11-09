@@ -11,7 +11,7 @@ export async function ensureDatabase(): Promise<void> {
     )
     if (databases.length > 0) return
 
-    const quotedDatabaseName = `[${DATABASE_NAME.replaceAll("]", "]]")}]`
+    const quotedDatabaseName = `[${DATABASE_NAME.replace(/]/g, "]]")}]`
     await migrationClient.raw(`CREATE DATABASE ${quotedDatabaseName}`)
   } finally {
     await migrationClient.destroy()
