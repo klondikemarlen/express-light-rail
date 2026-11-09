@@ -2,37 +2,33 @@ import { db, Comment, Thread, User } from "@example-app/models/index.js"
 
 export async function seed(): Promise<void> {
   await db.transaction(async () => {
-    const userCount = await User.count()
+    const userCount = await User.count({ paranoid: false })
     if (userCount > 0) {
       return
     }
 
-    await User.create({
-      id: 1,
+    const alice = await User.create({
       username: "alice",
       name: "Alice",
       password: "alice-password",
     })
 
-    await User.create({
-      id: 2,
+    const bob = await User.create({
       username: "bob",
       name: "Bob",
       password: "bob-password",
     })
 
-    await Thread.create({
-      id: 1,
+    const thread = await Thread.create({
       title: "Welcome to the board",
       body: "Share what you are building.",
-      authorId: 1,
+      authorId: alice.id,
     })
 
     await Comment.create({
-      id: 1,
       body: "Glad to be here.",
-      authorId: 2,
-      threadId: 1,
+      authorId: bob.id,
+      threadId: thread.id,
     })
   })
 }

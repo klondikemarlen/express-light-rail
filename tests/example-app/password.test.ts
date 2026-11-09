@@ -23,10 +23,18 @@ describe("User passwords", () => {
     const persistedUser = await User.findByPk(user.id, { rejectOnEmpty: true })
     expect(await persistedUser.authenticate("alice-password")).toBe(persistedUser)
     expect(persistedUser.passwordHash).toMatch(/^scrypt\$v1\$/)
+    expect(persistedUser.createdAt).toBeInstanceOf(Date)
+    expect(persistedUser.updatedAt).toBeInstanceOf(Date)
+    expect(persistedUser.deletedAt).toBeNull()
     expect(user.password).toBeUndefined()
     expect(persistedUser.password).toBeUndefined()
     const columns = await db.queryInterface.describeTable("users")
     expect(columns).not.toHaveProperty("password")
+    expect(columns).toHaveProperty("password_hash")
+    expect(columns).toHaveProperty("created_at")
+    expect(columns).toHaveProperty("updated_at")
+    expect(columns).toHaveProperty("deleted_at")
+    expect(columns).not.toHaveProperty("passwordHash")
   })
 
   test("when a password is updated, accepts the new password and rejects the old one", async () => {
