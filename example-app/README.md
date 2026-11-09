@@ -35,7 +35,17 @@ No Redis, external account, environment file, or database container is required.
 
 The framework runtime remains minimal. This example owns its Helmet security headers, credentialed CORS policy, bounded query/JSON/URL-encoded/multipart parsing, completion logging, authentication, status endpoint, and frontend hosting.
 
-[`POST /api/session`](controllers/sessions-controller.ts) accepts a username and password as JSON or form fields. Login preserves credential strings; resource-only form normalization runs afterward. [`Users.AuthenticateService`](services/users/authenticate-service.ts) checks the salted scrypt password hash; the [session service](services/sessions/create-service.ts) returns a signed, 15-minute JWT. Send that token in the `Authorization: Bearer` header on subsequent API requests.
+[`POST /api/session`](controllers/sessions-controller.ts) accepts a username and password as JSON or form fields. Login preserves credential strings; resource-only form normalization runs afterward. [`Users.AuthenticateService`](services/users/authenticate-service.ts) finds the user and delegates credential verification to `user.authenticate(password)`; the [session service](services/sessions/create-service.ts) returns a signed, 15-minute JWT. Send that token in the `Authorization: Bearer` header on subsequent API requests.
+
+User creation and password changes follow Rails' `has_secure_password` style:
+
+```ts
+const user = await User.create({ username: "alice", name: "Alice", password: "alice-password" })
+await user.update({ password: "new-password" })
+const authenticatedUser = await user.authenticate("new-password")
+```
+
+`password` is a virtual attribute. The model hashes it with a fresh salt before saving, stores only `passwordHash`, and clears the supplied plaintext afterward. Unrelated saves preserve the existing hash. `authenticate` returns the user on success or `false` on failure. Seeds and factories supply passwords, not hashes. Use instance creation/update/save with hooks enabled for credential changes, not bulk operations that bypass instance hooks. Existing accounts without a hash remain unable to log in; they do not acquire a default password.
 
 The [authorization middleware](middlewares/authorization-middleware.ts) verifies HS256 signature, issuer, audience, age, and expiry, then calls a service to load the existing user into `request.currentUser`. `ApplicationController` only exposes that context; it does not override `beforeAction()` or dispatch. Resource policies still own permissions.
 
