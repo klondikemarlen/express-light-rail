@@ -6,7 +6,6 @@ import request from "supertest"
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest"
 
 import type { User } from "@example-app/models/user.js"
-import { hashPassword } from "@example-app/utils/password.js"
 
 let application: Express
 let database: Sequelize
@@ -112,7 +111,7 @@ describe("local session authentication", () => {
       // Arrange
       await userFactory.create({
         username: "true",
-        passwordHash: await hashPassword("false"),
+        password: "false",
       })
       const route = request(application).post("/api/session")
       if (format === "URL-encoded") {
