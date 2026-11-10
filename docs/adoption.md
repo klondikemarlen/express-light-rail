@@ -115,7 +115,7 @@ curl -H "Authorization: Bearer $ALICE_TOKEN" http://localhost:3000/api/threads
 curl -H "Authorization: Bearer $BOB_TOKEN" http://localhost:3000/api/threads/1/comments
 ```
 
-Follow the [walkthrough](../example-app/README.md) for login, create, update, delete, forbidden, validation, and nested-resource scenarios. Startup runs versioned migrations and seeds only an empty development database; changes survive restarts. Password hashes and 15-minute bearer JWTs are owned by the example, not the framework. This example is not a migration of WRAP, Travel Authorization, or ELCC.
+Follow the [walkthrough](../example-app/README.md) for login, create, update, delete, forbidden, validation, and nested-resource scenarios. Startup runs versioned migrations and idempotent development seeds that create missing demo records without overwriting existing matches. Password hashes and 15-minute bearer JWTs are owned by the example, not the framework. This example is not a migration of WRAP, Travel Authorization, or ELCC.
 
 ## Consumer-shaped cutover fixtures and artifact smoke
 

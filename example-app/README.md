@@ -16,7 +16,7 @@ The API listens at `http://localhost:3000`. To use another host port, run `API_P
 
 The application container runs the watched example command. Saving package or example TypeScript rebuilds and restarts the server; compilation errors stop it until corrected. Static HTML/CSS changes only need a browser refresh. Use `bin/dev npm ci` after dependency changes and `bin/dev down` to stop the project without deleting its database volume. Without a stable `EXAMPLE_JWT_SECRET`, restarts invalidate login tokens.
 
-Startup runs ordered [initializers](initializers/): ensure the PostgreSQL database, run pending Knex migrations, then select seeds for `NODE_ENV`. Development seeds an empty database with Alice, Bob, one welcome thread, and Bob's comment. Production and test do not run demo seeds. Subsequent startups preserve existing records, including soft-deleted users.
+Startup runs ordered [initializers](initializers/): ensure the PostgreSQL database, run pending Knex migrations, then select seeds for `NODE_ENV`. Development seeds Alice, Bob, one welcome thread, and Bob's comment idempotently. Production and test do not run demo seeds. Subsequent startups create missing demo records without overwriting existing matching records.
 
 Each [migration](db/migrations/) creates one table: users, then threads, then comments, in foreign-key dependency order. Each `down` drops only that migration's table, so rollback runs in reverse order. After migrations have been applied in a shared environment, add new migrations for schema changes rather than editing applied history.
 
@@ -209,7 +209,7 @@ Services follow WRAP's resource folders rather than repeating the resource in ev
 
 Models do not call `Model.init` or import the database client. Attribute and association decorators live with the owning class; `models/index.ts` calls `db.addModels(...)` once. Schema changes belong in self-contained Knex migrations, not model synchronization or initializer conditionals. A migration must not import a current model definition.
 
-The [seed initializer](initializers/30-run-seeds.ts) runs [`db/seeds/development/001.fill-discussion-board.ts`](db/seeds/development/001.fill-discussion-board.ts) only in development, after migrations. Production and test do not run demo seeds; unknown environments are rejected rather than falling back to development. Existing databases with users are left untouched.
+The [seed initializer](initializers/30-run-seeds.ts) runs [`db/seeds/development/001.fill-discussion-board.ts`](db/seeds/development/001.fill-discussion-board.ts) only in development, after migrations. Production and test do not run demo seeds; unknown environments are rejected rather than falling back to development. Each demo record uses `findOrCreate`, following WRAP's team and position seeds. Users match by username, threads by author and title, and comments by author, thread, and body. Changing a lookup field or deleting a demo post allows the original demo content to be created again on the next startup.
 
 The development seed uses a managed transaction with Sequelize 7's automatic transaction context, as in WRAP. Model queries inside the callback share that transaction without explicit `{ transaction }` options. If a write fails, all seed writes roll back.
 
