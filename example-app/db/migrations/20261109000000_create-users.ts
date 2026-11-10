@@ -6,9 +6,9 @@ export async function up(database: Knex): Promise<void> {
     table.string("username", 255).notNullable().unique()
     table.string("name", 255).notNullable()
     table.string("password_hash", 255).nullable()
-    table.timestamp("created_at", { useTz: true }).notNullable().defaultTo(database.fn.now())
-    table.timestamp("updated_at", { useTz: true }).notNullable().defaultTo(database.fn.now())
-    table.timestamp("deleted_at", { useTz: true }).nullable()
+    table.timestamp("created_at").notNullable().defaultTo(database.fn.now())
+    table.timestamp("updated_at").notNullable().defaultTo(database.fn.now())
+    table.timestamp("deleted_at").nullable()
   })
 }
 
