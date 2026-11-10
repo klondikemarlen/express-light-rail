@@ -1,3 +1,6 @@
+import { extname } from "node:path"
+import { fileURLToPath } from "node:url"
+
 import knex, { type Knex } from "knex"
 
 import {
@@ -10,9 +13,16 @@ import {
   DB_POOL_IDLE_MS,
   DB_POOL_MAX,
   DB_POOL_MIN,
+  NODE_ENV,
 } from "@example-app/config.js"
 
-export function createMigrationClient(databaseName = DATABASE_NAME): Knex {
+export function createMigrationClient(databaseName = DATABASE_NAME, environment = NODE_ENV): Knex {
+  const extension = extname(fileURLToPath(import.meta.url))
+  const seedDirectories = []
+  if (environment === "development") {
+    seedDirectories.push(fileURLToPath(new URL(`./seeds/${environment}/`, import.meta.url)))
+  }
+
   return knex({
     client: "pg",
     connection: {
@@ -27,6 +37,14 @@ export function createMigrationClient(databaseName = DATABASE_NAME): Knex {
       max: DB_POOL_MAX,
       min: DB_POOL_MIN,
       idleTimeoutMillis: DB_POOL_IDLE_MS,
+    },
+    migrations: {
+      directory: fileURLToPath(new URL("./migrations/", import.meta.url)),
+      loadExtensions: [extension],
+    },
+    seeds: {
+      directory: seedDirectories,
+      loadExtensions: [extension],
     },
   })
 }

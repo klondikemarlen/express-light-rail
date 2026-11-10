@@ -7,7 +7,8 @@ import { threadFactory } from "@tests/example-app/factories/thread-factory.js"
 import { userFactory } from "@tests/example-app/factories/user-factory.js"
 import { cleanExampleDatabase, prepareExampleDatabase } from "@tests/support/example-database.js"
 
-import { runSeeds } from "@example-app/initializers/30-run-seeds.js"
+import { initialize as runSeeds } from "@example-app/initializers/30-run-seeds.js"
+import { seed } from "@example-app/db/seeds/development/001.fill-discussion-board.js"
 
 beforeAll(prepareExampleDatabase)
 beforeEach(cleanExampleDatabase)
@@ -16,13 +17,12 @@ afterAll(async () => {
   await db.close()
 })
 
-describe("environment-specific seeds", () => {
-  test("when development is selected, creates an authored discussion with a comment", async () => {
-    // Arrange
-    const environment = "development"
+describe("discussion-board seeds", () => {
+  test("when the database is empty, creates an authored discussion with a comment", async () => {
+    // Arrange: beforeEach clears the database.
 
     // Act
-    await runSeeds(environment)
+    await seed()
 
     // Assert
     const thread = await Thread.findOne({
@@ -62,7 +62,7 @@ describe("environment-specific seeds", () => {
 
   test("when factories create records after development seeds, uses unclaimed generated identifiers", async () => {
     // Arrange
-    await runSeeds("development")
+    await seed()
     const seededUsers = await User.findAll()
     const seededThread = await Thread.findOne({ rejectOnEmpty: true })
     const seededComment = await Comment.findOne({ rejectOnEmpty: true })
@@ -88,13 +88,13 @@ describe("environment-specific seeds", () => {
 
   test("when development seeds run again, preserves the original records", async () => {
     // Arrange
-    await runSeeds("development")
+    await seed()
     const users = await User.findAll({ order: [["id", "ASC"]] })
     const threads = await Thread.findAll()
     const comments = await Comment.findAll()
 
     // Act
-    await runSeeds("development")
+    await seed()
 
     // Assert
     expect(await User.findAll({ order: [["id", "ASC"]] })).toEqual(users)
@@ -116,7 +116,7 @@ describe("environment-specific seeds", () => {
     })
 
     // Act
-    await runSeeds("development")
+    await seed()
 
     // Assert
     const users = await User.findAll({ order: [["id", "ASC"]] })
@@ -153,7 +153,7 @@ describe("environment-specific seeds", () => {
 
     try {
       // Act
-      await expect(runSeeds("development")).rejects.toThrow(seedFailure)
+      await expect(seed()).rejects.toThrow(seedFailure)
 
       // Assert
       const users = await User.findAll({ paranoid: false })

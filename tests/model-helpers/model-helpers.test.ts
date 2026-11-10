@@ -11,7 +11,7 @@ import {
   DATABASE_USERNAME,
   NODE_ENV,
 } from "@example-app/config.js"
-import { ensureDatabase } from "@example-app/initializers/10-ensure-database.js"
+import { initialize as ensureDatabase } from "@example-app/initializers/10-ensure-database.js"
 
 interface ReloadRecordAttributes {
   id: number

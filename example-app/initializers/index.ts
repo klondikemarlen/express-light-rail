@@ -1,9 +1,27 @@
-import { ensureDatabase } from "@example-app/initializers/10-ensure-database.js"
-import { runMigrations } from "@example-app/initializers/20-run-migrations.js"
-import { runSeeds } from "@example-app/initializers/30-run-seeds.js"
+import { readdir } from "node:fs/promises"
+import { extname } from "node:path"
+import { fileURLToPath } from "node:url"
+
+import { logger } from "@example-app/utils/logger.js"
 
 export async function initializeApplication(): Promise<void> {
-  await ensureDatabase()
-  await runMigrations()
-  await runSeeds()
+  const directory = new URL("./", import.meta.url)
+  const extension = extname(fileURLToPath(import.meta.url))
+  const files = await readdir(directory)
+
+  for (const file of files.sort()) {
+    if (!/^\d+-/.test(file) || extname(file) !== extension) continue
+
+    const moduleUrl = new URL(file, directory)
+    logger.info(`Running initializer: ${file}`)
+
+    try {
+      // Initializer modules are discovered from the runtime directory.
+      const { initialize } = await import(moduleUrl.href)
+      await initialize()
+    } catch (error) {
+      logger.error(`Failed to run initializer: ${file}`, { error })
+      throw error
+    }
+  }
 }

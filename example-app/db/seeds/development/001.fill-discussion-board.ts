@@ -1,4 +1,4 @@
-import { isNil } from "lodash"
+import isNil from "lodash/isNil.js"
 
 import { db, Comment, Thread, User } from "@example-app/models/index.js"
 
