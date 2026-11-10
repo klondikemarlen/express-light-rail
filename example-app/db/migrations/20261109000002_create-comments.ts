@@ -6,9 +6,9 @@ export async function up(database: Knex): Promise<void> {
     table.text("body").notNullable()
     table.integer("author_id").notNullable()
     table.integer("thread_id").notNullable()
-    table.timestamp("created_at", { useTz: true }).notNullable().defaultTo(database.fn.now())
-    table.timestamp("updated_at", { useTz: true }).notNullable().defaultTo(database.fn.now())
-    table.timestamp("deleted_at", { useTz: true }).nullable()
+    table.timestamp("created_at").notNullable().defaultTo(database.fn.now())
+    table.timestamp("updated_at").notNullable().defaultTo(database.fn.now())
+    table.timestamp("deleted_at").nullable()
 
     table.foreign("author_id").references("users.id")
     table.foreign("thread_id").references("threads.id").onDelete("CASCADE")
