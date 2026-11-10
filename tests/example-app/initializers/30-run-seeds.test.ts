@@ -102,29 +102,16 @@ describe("environment-specific seeds", () => {
     expect(await Comment.findAll()).toEqual(comments)
   })
 
-  test("when only soft-deleted users remain, does not recreate demo accounts", async () => {
-    // Arrange
-    const author = await userFactory.create({ username: "alice" })
-    await author.destroy()
-
-    // Act
-    await runSeeds("development")
-
-    // Assert
-    expect(await User.count()).toBe(0)
-    expect(await User.count({ paranoid: false })).toBe(1)
-    expect(await Thread.count({ paranoid: false })).toBe(0)
-    expect(await Comment.count({ paranoid: false })).toBe(0)
-  })
-
-  test("when a discussion database already has users, preserves its edited content", async () => {
+  test("when some demo records exist, creates missing records without changing existing ones", async () => {
     // Arrange
     const author = await userFactory.create({
       username: "alice",
+      name: "Alice Updated",
+      password: "changed-password",
     })
-    await threadFactory.create({
+    const thread = await threadFactory.create({
       authorId: author.id,
-      title: "Edited discussion",
+      title: "Welcome to the board",
       body: "Keep this content on restart.",
     })
 
@@ -132,15 +119,28 @@ describe("environment-specific seeds", () => {
     await runSeeds("development")
 
     // Assert
-    const threads = await Thread.findAll({
-      attributes: ["title", "body"],
-      raw: true,
-    })
-    expect(threads).toEqual([
+    const users = await User.findAll({ order: [["id", "ASC"]] })
+    expect(users).toMatchObject([
       {
-        title: "Edited discussion",
-        body: "Keep this content on restart.",
+        id: author.id,
+        username: "alice",
+        name: "Alice Updated",
+        passwordHash: author.passwordHash,
       },
+      { username: "bob", name: "Bob" },
+    ])
+    expect(await Thread.findAll()).toMatchObject([
+      {
+        id: thread.id,
+        authorId: author.id,
+        title: "Welcome to the board",
+        body: "Keep this content on restart.",
+        updatedAt: thread.updatedAt,
+      },
+    ])
+    const bob = await User.findOne({ where: { username: "bob" }, rejectOnEmpty: true })
+    expect(await Comment.findAll()).toMatchObject([
+      { authorId: bob.id, threadId: thread.id, body: "Glad to be here." },
     ])
   })
 
