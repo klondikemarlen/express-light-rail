@@ -1,5 +1,6 @@
 import { Sequelize, type Options } from "@sequelize/core"
 import { PostgresDialect } from "@sequelize/postgres"
+import minify from "pg-minify"
 
 import {
   DATABASE_HOST,
@@ -20,6 +21,11 @@ if (!DATABASE_NAME.trim()) throw new Error("database name is unset.")
 if (!DATABASE_USERNAME.trim()) throw new Error("database username is unset.")
 if (!DATABASE_PASSWORD) throw new Error("database password is unset.")
 
+function sqlLogger(query: string): void {
+  const compactQuery = minify(query)
+  logger.info(compactQuery)
+}
+
 export const SEQUELIZE_CONFIG: Options<PostgresDialect> = {
   dialect: PostgresDialect,
   host: DATABASE_HOST,
@@ -28,7 +34,7 @@ export const SEQUELIZE_CONFIG: Options<PostgresDialect> = {
   user: DATABASE_USERNAME,
   password: DATABASE_PASSWORD,
 
-  logging: NODE_ENV === "development" ? (query) => logger.info(query) : false,
+  logging: NODE_ENV === "development" ? sqlLogger : false,
 
   pool: {
     max: DB_POOL_MAX,
