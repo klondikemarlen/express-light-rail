@@ -136,7 +136,7 @@ curl -i -X PATCH -H "Authorization: Bearer $BOB_TOKEN" -H 'content-type: applica
   http://localhost:3000/api/threads/2/comments/2
 ```
 
-Both PATCH requests return HTTP 200 with the updated record. Omitted fields remain unchanged. Restart the app and repeat the GET requests: your records and edits remain in SQL Server.
+Both PATCH requests return HTTP 200 with the updated record. Omitted fields remain unchanged. Restart the app and repeat the GET requests: your records and edits remain in PostgreSQL.
 
 ## Try the authorization boundary
 
