@@ -309,6 +309,8 @@ bin/dev npm pack --dry-run --json
 
 The example uses PostgreSQL, with separate development and test databases. Compose waits for database health before starting application commands. The application watches source changes and rebuilds automatically. `bin/dev npm ci` refreshes the container dependency volume after dependency changes.
 
+Startup discovers numbered initializer modules in filename order, logs pending migrations, and runs seeds through Knex. Initializer failures stop startup. Development SQL is compacted with `pg-minify` and sent through Winston; SQL logging is disabled in test and production.
+
 Use `API_PORT=3352 bin/dev up -d app` to change the host HTTP port. Set a unique `COMPOSE_PROJECT_NAME` for an isolated checkout; its containers, dependencies, and database volume remain separate from other projects. `bin/dev down` stops the project without deleting database data. Do not use another application's database for these tests.
 
 ## Publishing

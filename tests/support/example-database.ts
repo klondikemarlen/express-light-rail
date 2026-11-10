@@ -1,6 +1,6 @@
 import { DATABASE_NAME, NODE_ENV } from "@example-app/config.js"
-import { ensureDatabase } from "@example-app/initializers/10-ensure-database.js"
-import { runMigrations } from "@example-app/initializers/20-run-migrations.js"
+import { initialize as ensureDatabase } from "@example-app/initializers/10-ensure-database.js"
+import { initialize as runMigrations } from "@example-app/initializers/20-run-migrations.js"
 import { Comment, Thread, User } from "@example-app/models/index.js"
 
 function assertTestDatabase(): void {
