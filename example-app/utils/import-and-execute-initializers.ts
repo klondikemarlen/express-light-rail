@@ -1,18 +1,17 @@
 import { readdir } from "node:fs/promises"
-import { extname } from "node:path"
-import { fileURLToPath } from "node:url"
+import { extname, join } from "node:path"
+import { fileURLToPath, pathToFileURL } from "node:url"
 
 import { logger } from "@example-app/utils/logger.js"
 
-export async function initializeApplication(): Promise<void> {
-  const directory = new URL("./", import.meta.url)
+export async function importAndExecuteInitializers(initializersPath: string): Promise<void> {
   const extension = extname(fileURLToPath(import.meta.url))
-  const files = await readdir(directory)
+  const files = await readdir(initializersPath)
 
   for (const file of files.sort()) {
     if (!/^\d+-/.test(file) || extname(file) !== extension) continue
 
-    const moduleUrl = new URL(file, directory)
+    const moduleUrl = pathToFileURL(join(initializersPath, file))
     logger.info(`Running initializer: ${file}`)
 
     try {

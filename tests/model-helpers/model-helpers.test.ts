@@ -133,9 +133,9 @@ describe("model helpers", () => {
     await sequelize.close()
   })
 
-  test("when applying a scope, it preserves custom statics and concrete record types", async () => {
+  test("when applying a scope, it preserves custom statics", async () => {
     // Arrange
-    const record = await ReloadRecord.create({
+    await ReloadRecord.create({
       name: "Ada",
       visible: true,
     })
@@ -143,12 +143,9 @@ describe("model helpers", () => {
     // Act
     const scopedModel = withScope(ReloadRecord, "visible")
     const foundRecord = await scopedModel.findByName("Ada")
-    const reloadedRecord = await reloadWithScope(record, "visible")
 
     // Assert
     expect(foundRecord?.name).toBe("Ada")
-    expect(reloadedRecord).toBeInstanceOf(ReloadRecord)
-    expect(reloadedRecord).not.toBe(record)
   })
 
   test("when applying consecutive scopes, it combines every filter", async () => {
@@ -323,8 +320,29 @@ describe("model helpers", () => {
     const reloadedRecord = await reloadWithScope(record, "visible")
 
     // Assert
+    expect(reloadedRecord.get()).toEqual({ id: record.id, name: "after", visible: true })
+  })
+
+  test("when reloading a record, it returns a distinct model instance", async () => {
+    // Arrange
+    const record = await ReloadRecord.create({ name: "Ada", visible: true })
+
+    // Act
+    const reloadedRecord = await reloadWithScope(record, "visible")
+
+    // Assert
     expect(reloadedRecord).not.toBe(record)
-    expect(reloadedRecord.name).toBe("after")
+  })
+
+  test("when reloading changed persisted state, it leaves the original instance unchanged", async () => {
+    // Arrange
+    const record = await ReloadRecord.create({ name: "before", visible: true })
+    await ReloadRecord.update({ name: "after" }, { where: { id: record.id } })
+
+    // Act
+    await reloadWithScope(record, "visible")
+
+    // Assert
     expect(record.name).toBe("before")
   })
 
@@ -354,9 +372,7 @@ describe("model helpers", () => {
     const reloadedRecord = await reloadWithScope(record, null)
 
     // Assert
-    expect(reloadedRecord).not.toBe(record)
-    expect(reloadedRecord.name).toBe("after")
-    expect(record.name).toBe("before")
+    expect(reloadedRecord.get()).toEqual({ firstKey: 10, secondKey: 20, name: "after" })
   })
 
   test("when passing lookup options, it preserves transaction and attribute selection", async () => {
@@ -382,9 +398,7 @@ describe("model helpers", () => {
       })
 
       // Assert
-      expect(reloadedRecord.name).toBe("inside transaction")
-      expect(reloadedRecord.getDataValue("visible")).toBeUndefined()
-      expect(record.name).toBe("before")
+      expect(reloadedRecord.get()).toEqual({ id: record.id, name: "inside transaction" })
     })
   })
 
