@@ -22,7 +22,7 @@ Each [migration](db/migrations/) creates one table: users, then threads, then co
 
 Compose owns the development database connection and persistent `postgres_data` volume. The pool defaults to five connections, with a 30-second acquisition timeout and a 10-second idle timeout; `DB_POOL_MAX`, `DB_POOL_MIN`, `DB_POOL_ACQUIRE_MS`, and `DB_POOL_IDLE_MS` configure it. Tests use the separate `express_light_rail_test` database. There is no in-memory database path or schema repair during startup.
 
-Development SQL uses a named `sqlLogger` callback with `pg-minify`, following Travel Authorization's PostgreSQL setup. Output goes through the application's Winston logger; SQL logging is disabled in test and production.
+Development SQL uses a named `sqlLogger` callback with `pg-minify`, following Travel Authorization's PostgreSQL setup. Import the application's configured Winston logger with `import logger from "@example-app/utils/logger.js"`. SQL logging is disabled in test and production.
 
 Database columns use snake_case; TypeScript attributes and API fields remain camelCase. All models have `createdAt`, `updatedAt`, and nullable `deletedAt` timestamps. Normal Sequelize queries exclude soft-deleted records. `Threads.DestroyService` soft-deletes a thread and its comments in one transaction; deleting a comment affects only that comment. The API does not expose restoration or permanent deletion.
 
