@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test, vi } from "vitest"
 
-import { Comment } from "@example-app/models/index.js"
+import { Comment, Thread } from "@example-app/models/index.js"
 import { commentFactory } from "@tests/example-app/factories/comment-factory.js"
 import { threadFactory } from "@tests/example-app/factories/thread-factory.js"
 import {
@@ -17,6 +17,51 @@ beforeEach(cleanExampleDatabase)
 afterAll(closeExampleDatabase)
 
 describe("Threads.DestroyService", () => {
+  test("when a thread is deleted, retains its row with a deletion timestamp", async () => {
+    // Arrange
+    const thread = await threadFactory.create()
+
+    // Act
+    await DestroyService.perform(thread)
+
+    // Assert
+    const deletedThread = await Thread.findByPk(thread.id, {
+      paranoid: false,
+      rejectOnEmpty: true,
+    })
+    expect(deletedThread.deletedAt).toBeInstanceOf(Date)
+  })
+
+  test("when a thread is deleted, retains its comment with a deletion timestamp", async () => {
+    // Arrange
+    const thread = await threadFactory.create()
+    const comment = await commentFactory.create({ threadId: thread.id })
+
+    // Act
+    await DestroyService.perform(thread)
+
+    // Assert
+    const deletedComment = await Comment.findByPk(comment.id, {
+      paranoid: false,
+      rejectOnEmpty: true,
+    })
+    expect(deletedComment.deletedAt).toBeInstanceOf(Date)
+  })
+
+  test("when a thread is deleted, leaves another thread's comment visible", async () => {
+    // Arrange
+    const thread = await threadFactory.create()
+    await commentFactory.create({ threadId: thread.id })
+    const otherComment = await commentFactory.create()
+
+    // Act
+    await DestroyService.perform(thread)
+
+    // Assert
+    const retainedComment = await Comment.findByPk(otherComment.id, { rejectOnEmpty: true })
+    expect(retainedComment.deletedAt).toBeNull()
+  })
+
   test("when thread deletion fails, reports the failure", async () => {
     // Arrange
     const thread = await threadFactory.create()
