@@ -2,7 +2,7 @@ import { readdir } from "node:fs/promises"
 import { extname, join } from "node:path"
 import { fileURLToPath, pathToFileURL } from "node:url"
 
-import { logger } from "@example-app/utils/logger.js"
+import logger from "@example-app/utils/logger.js"
 
 export async function importAndExecuteInitializers(initializersPath: string): Promise<void> {
   const extension = extname(fileURLToPath(import.meta.url))

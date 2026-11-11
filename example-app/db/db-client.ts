@@ -14,7 +14,7 @@ import {
   DB_POOL_MIN,
   NODE_ENV,
 } from "@example-app/config.js"
-import { logger } from "@example-app/utils/logger.js"
+import logger from "@example-app/utils/logger.js"
 
 if (!DATABASE_HOST) throw new Error("database host is unset.")
 if (!DATABASE_NAME) throw new Error("database name is unset.")

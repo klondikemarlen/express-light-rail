@@ -7,7 +7,7 @@ import {
   DATABASE_PORT,
   DATABASE_USERNAME,
 } from "@example-app/config.js"
-import { logger } from "@example-app/utils/logger.js"
+import logger from "@example-app/utils/logger.js"
 
 export async function initialize(): Promise<void> {
   const migrationClient = knex({
