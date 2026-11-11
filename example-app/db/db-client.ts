@@ -16,9 +16,9 @@ import {
 } from "@example-app/config.js"
 import { logger } from "@example-app/utils/logger.js"
 
-if (!DATABASE_HOST.trim()) throw new Error("database host is unset.")
-if (!DATABASE_NAME.trim()) throw new Error("database name is unset.")
-if (!DATABASE_USERNAME.trim()) throw new Error("database username is unset.")
+if (!DATABASE_HOST) throw new Error("database host is unset.")
+if (!DATABASE_NAME) throw new Error("database name is unset.")
+if (!DATABASE_USERNAME) throw new Error("database username is unset.")
 if (!DATABASE_PASSWORD) throw new Error("database password is unset.")
 
 function sqlLogger(query: string): void {
