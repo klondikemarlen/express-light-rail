@@ -1,5 +1,4 @@
 import { jwtVerify, SignJWT } from "jose"
-import type { Sequelize } from "@sequelize/core"
 import type { Express } from "express"
 import type { FactoryInterface } from "factory-shark"
 import request from "supertest"
@@ -8,7 +7,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest"
 import type { User } from "@example-app/models/user.js"
 
 let application: Express
-let database: Sequelize
+let closeExampleDatabase: () => Promise<void>
 let userFactory: FactoryInterface<User>
 let cleanExampleDatabase: () => Promise<void>
 let jwtSecret: string
@@ -27,11 +26,11 @@ beforeAll(async () => {
   jwtSecret = config.JWT_SECRET
   jwtIssuer = config.JWT_ISSUER
   jwtAudience = config.JWT_AUDIENCE
-  database = (await import("@example-app/models/index.js")).db
   userFactory = (await import("@tests/example-app/factories/user-factory.js")).userFactory
   application = (await import("@example-app/app.js")).app
   const databaseSupport = await import("@tests/support/example-database.js")
   cleanExampleDatabase = databaseSupport.cleanExampleDatabase
+  closeExampleDatabase = databaseSupport.closeExampleDatabase
   await databaseSupport.prepareExampleDatabase()
 })
 
@@ -40,7 +39,7 @@ beforeEach(async () => {
 })
 
 afterAll(async () => {
-  await database?.close()
+  await closeExampleDatabase?.()
   if (previousJwtSecret === undefined) delete process.env.EXAMPLE_JWT_SECRET
   else process.env.EXAMPLE_JWT_SECRET = previousJwtSecret
 })
@@ -79,30 +78,60 @@ describe("local session authentication", () => {
 
     // Assert
     expect(response.status).toBe(201)
-    expect(response.headers["cache-control"]).toBe("no-store")
     expect(response.body).toEqual({
       accessToken: expect.any(String),
       tokenType: "Bearer",
       expiresIn: 900,
     })
-    const { payload, protectedHeader } = await jwtVerify(
+  })
+
+  test("when credentials are valid, prevents caching the token response", async () => {
+    // Arrange
+    const user = await userFactory.create({ username: "alice" })
+
+    // Act
+    const response = await login(user.username)
+
+    // Assert
+    expect(response.headers["cache-control"]).toBe("no-store")
+  })
+
+  test("when credentials are valid, signs the token for the user's identity", async () => {
+    // Arrange
+    const user = await userFactory.create({ username: "alice" })
+
+    // Act
+    const response = await login(user.username)
+    const { payload } = await jwtVerify(
       response.body.accessToken,
       new TextEncoder().encode(jwtSecret),
-      {
-        issuer: jwtIssuer,
-        audience: jwtAudience,
-        algorithms: ["HS256"],
-      }
+      { issuer: jwtIssuer, audience: jwtAudience, algorithms: ["HS256"] }
     )
-    expect(protectedHeader.alg).toBe("HS256")
+
+    // Assert
     expect(payload).toMatchObject({
       sub: String(user.id),
       iss: jwtIssuer,
       aud: jwtAudience,
+      iat: expect.any(Number),
+      exp: expect.any(Number),
     })
-    expect(payload.exp).toBeTypeOf("number")
-    expect(payload.iat).toBeTypeOf("number")
-    expect(payload.exp! - payload.iat!).toBe(900)
+  })
+
+  test("when credentials are valid, limits the signed token lifetime to fifteen minutes", async () => {
+    // Arrange
+    const user = await userFactory.create({ username: "alice" })
+
+    // Act
+    const response = await login(user.username)
+    const { payload } = await jwtVerify(
+      response.body.accessToken,
+      new TextEncoder().encode(jwtSecret),
+      { issuer: jwtIssuer, audience: jwtAudience, algorithms: ["HS256"] }
+    )
+
+    // Assert
+    expect((payload.exp ?? 0) - (payload.iat ?? 0)).toBe(900)
   })
 
   test.each(["URL-encoded", "multipart"])(

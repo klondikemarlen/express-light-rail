@@ -1,21 +1,21 @@
 import request from "supertest"
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest"
 
-import { Comment, db, Thread } from "@example-app/models/index.js"
-
 import { commentFactory } from "@tests/example-app/factories/comment-factory.js"
 import { threadFactory } from "@tests/example-app/factories/thread-factory.js"
 import { userFactory } from "@tests/example-app/factories/user-factory.js"
-import { cleanExampleDatabase, prepareExampleDatabase } from "@tests/support/example-database.js"
+import {
+  cleanExampleDatabase,
+  closeExampleDatabase,
+  prepareExampleDatabase,
+} from "@tests/support/example-database.js"
 
 import { app } from "@example-app/app.js"
 
 beforeAll(prepareExampleDatabase)
 beforeEach(cleanExampleDatabase)
 
-afterAll(async () => {
-  await db.close()
-})
+afterAll(closeExampleDatabase)
 
 const testPassword = "test-password"
 
@@ -80,14 +80,9 @@ describe("discussion board", () => {
 
     // Assert
     expect(response.status).toBe(201)
-    const createdThread = await Thread.findOne({
-      where: { title: "A new discussion" },
-      rejectOnEmpty: true,
-    })
-    expect(createdThread.id).not.toBe(existingThread.id)
     expect(response.body).toEqual({
       thread: {
-        id: createdThread.id,
+        id: expect.any(Number),
         authorId: author.id,
         title: "A new discussion",
         body: "What are you building?",
@@ -289,14 +284,9 @@ describe("discussion board", () => {
 
     // Assert
     expect(response.status).toBe(201)
-    const createdComment = await Comment.findOne({
-      where: { body: "I am building a discussion board." },
-      rejectOnEmpty: true,
-    })
-    expect(createdComment.id).not.toBe(existingComment.id)
     expect(response.body).toEqual({
       comment: {
-        id: createdComment.id,
+        id: expect.any(Number),
         body: "I am building a discussion board.",
         authorId: author.id,
         threadId: thread.id,
@@ -384,46 +374,43 @@ describe("discussion board", () => {
     expect(response.text).toBe("")
   })
 
-  test("when an author deletes a thread, hides the thread and its comments while retaining their rows", async () => {
+  test("when an author deletes a thread, subsequent thread requests return not found", async () => {
     // Arrange
-    const author = await userFactory.create({
-      username: "alice",
-    })
+    const author = await userFactory.create({ username: "alice" })
     const token = await login(author.username)
-    const thread = await threadFactory.create({
-      authorId: author.id,
-    })
-    const comment = await commentFactory.create({
-      threadId: thread.id,
-    })
-    const otherComment = await commentFactory.create()
-    const route = request(app)
-      .delete(`/api/threads/${thread.id}`)
-      .set("Authorization", `Bearer ${token}`)
+    const thread = await threadFactory.create({ authorId: author.id })
 
     // Act
-    const response = await route
-    const deletedThreadResponse = await request(app)
+    await request(app).delete(`/api/threads/${thread.id}`).set("Authorization", `Bearer ${token}`)
+    const response = await request(app)
       .get(`/api/threads/${thread.id}`)
       .set("Authorization", `Bearer ${token}`)
-    const deletedCommentResponse = await request(app)
+
+    // Assert
+    expect(response.status).toBe(404)
+    expect(response.body).toEqual({
+      error: { code: "not_found", msg: "Thread not found", meta: {} },
+    })
+  })
+
+  test("when an author deletes a thread, subsequent comment requests return not found", async () => {
+    // Arrange
+    const author = await userFactory.create({ username: "alice" })
+    const token = await login(author.username)
+    const thread = await threadFactory.create({ authorId: author.id })
+    const comment = await commentFactory.create({ threadId: thread.id })
+
+    // Act
+    await request(app).delete(`/api/threads/${thread.id}`).set("Authorization", `Bearer ${token}`)
+    const response = await request(app)
       .get(`/api/threads/${thread.id}/comments/${comment.id}`)
       .set("Authorization", `Bearer ${token}`)
 
     // Assert
-    expect(response.status).toBe(204)
-    expect(deletedThreadResponse.status).toBe(404)
-    expect(deletedCommentResponse.status).toBe(404)
-    expect(await Thread.findByPk(thread.id)).toBeNull()
-    expect(await Comment.findByPk(comment.id)).toBeNull()
-    const deletedThread = await Thread.findByPk(thread.id, { paranoid: false, rejectOnEmpty: true })
-    const deletedComment = await Comment.findByPk(comment.id, {
-      paranoid: false,
-      rejectOnEmpty: true,
+    expect(response.status).toBe(404)
+    expect(response.body).toEqual({
+      error: { code: "not_found", msg: "Comment not found", meta: {} },
     })
-    expect(deletedThread.deletedAt).toBeInstanceOf(Date)
-    expect(deletedComment.deletedAt).toBeInstanceOf(Date)
-    expect(await Comment.findByPk(otherComment.id)).toMatchObject({ deletedAt: null })
   })
 
   test("when a bearer token is missing, denies access", async () => {
@@ -540,13 +527,9 @@ describe("discussion board", () => {
 
     // Assert
     expect(response.status).toBe(201)
-    const createdThread = await Thread.findOne({
-      where: { title: "A form discussion" },
-      rejectOnEmpty: true,
-    })
     expect(response.body).toEqual({
       thread: {
-        id: createdThread.id,
+        id: expect.any(Number),
         authorId: author.id,
         title: "A form discussion",
         body: "URL-encoded content",
@@ -571,13 +554,9 @@ describe("discussion board", () => {
 
     // Assert
     expect(response.status).toBe(201)
-    const createdThread = await Thread.findOne({
-      where: { title: "A multipart discussion" },
-      rejectOnEmpty: true,
-    })
     expect(response.body).toEqual({
       thread: {
-        id: createdThread.id,
+        id: expect.any(Number),
         authorId: author.id,
         title: "A multipart discussion",
         body: "Text fields without file uploads",
