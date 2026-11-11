@@ -1,4 +1,4 @@
-import { createMigrationClient } from "@example-app/db/migration-client.js"
+import { migrationClient } from "@example-app/db/migration-client.js"
 import { logger } from "@example-app/utils/logger.js"
 
 type MigrationInfo = {
@@ -7,8 +7,6 @@ type MigrationInfo = {
 }
 
 export async function initialize(): Promise<void> {
-  const migrationClient = createMigrationClient()
-
   try {
     const [_completedMigrations, pendingMigrations]: [MigrationInfo[], MigrationInfo[]] =
       await migrationClient.migrate.list()
@@ -27,7 +25,5 @@ export async function initialize(): Promise<void> {
   } catch (error) {
     logger.error("Error running migrations", { error })
     throw error
-  } finally {
-    await migrationClient.destroy()
   }
 }

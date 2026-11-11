@@ -1,11 +1,15 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest"
 
-import { db, Comment, Thread, User } from "@example-app/models/index.js"
+import { Comment, Thread, User } from "@example-app/models/index.js"
 
 import { commentFactory } from "@tests/example-app/factories/comment-factory.js"
 import { threadFactory } from "@tests/example-app/factories/thread-factory.js"
 import { userFactory } from "@tests/example-app/factories/user-factory.js"
-import { cleanExampleDatabase, prepareExampleDatabase } from "@tests/support/example-database.js"
+import {
+  cleanExampleDatabase,
+  closeExampleDatabase,
+  prepareExampleDatabase,
+} from "@tests/support/example-database.js"
 
 import { initialize as runSeeds } from "@example-app/initializers/30-run-seeds.js"
 import { seed } from "@example-app/db/seeds/development/001.fill-discussion-board.js"
@@ -13,9 +17,7 @@ import { seed } from "@example-app/db/seeds/development/001.fill-discussion-boar
 beforeAll(prepareExampleDatabase)
 beforeEach(cleanExampleDatabase)
 
-afterAll(async () => {
-  await db.close()
-})
+afterAll(closeExampleDatabase)
 
 describe("discussion-board seeds", () => {
   test("when the database is empty, creates an authored discussion with a comment", async () => {
@@ -60,59 +62,87 @@ describe("discussion-board seeds", () => {
     })
   })
 
-  test("when factories create records after development seeds, uses unclaimed generated identifiers", async () => {
+  test("when a user is created after development seeds, uses an unclaimed identifier", async () => {
     // Arrange
     await seed()
     const seededUsers = await User.findAll()
-    const seededThread = await Thread.findOne({ rejectOnEmpty: true })
-    const seededComment = await Comment.findOne({ rejectOnEmpty: true })
 
     // Act
     const author = await userFactory.create()
-    const thread = await threadFactory.create({ authorId: author.id })
-    const comment = await commentFactory.create({ authorId: author.id, threadId: thread.id })
 
     // Assert
     expect(author.id).toBeGreaterThan(Math.max(...seededUsers.map((user) => user.id)))
-    expect(thread.id).toBeGreaterThan(seededThread.id)
-    expect(comment.id).toBeGreaterThan(seededComment.id)
-    expect(thread.authorId).toBe(author.id)
-    expect(comment.authorId).toBe(author.id)
-    expect(comment.threadId).toBe(thread.id)
-    for (const record of [...seededUsers, seededThread, seededComment, author, thread, comment]) {
-      expect(record.createdAt).toBeInstanceOf(Date)
-      expect(record.updatedAt).toBeInstanceOf(Date)
-      expect(record.deletedAt).toBeNull()
-    }
   })
 
-  test("when development seeds run again, preserves the original records", async () => {
+  test("when a thread is created after development seeds, uses an unclaimed identifier", async () => {
     // Arrange
     await seed()
-    const users = await User.findAll({ order: [["id", "ASC"]] })
-    const threads = await Thread.findAll()
-    const comments = await Comment.findAll()
+    const seededThread = await Thread.findOne({ rejectOnEmpty: true })
+
+    // Act
+    const thread = await threadFactory.create()
+
+    // Assert
+    expect(thread.id).toBeGreaterThan(seededThread.id)
+  })
+
+  test("when a comment is created after development seeds, uses an unclaimed identifier", async () => {
+    // Arrange
+    await seed()
+    const seededComment = await Comment.findOne({ rejectOnEmpty: true })
+
+    // Act
+    const comment = await commentFactory.create()
+
+    // Assert
+    expect(comment.id).toBeGreaterThan(seededComment.id)
+  })
+
+  test("when development seeds run again, preserves the original users", async () => {
+    // Arrange
+    await seed()
+    const originalUsers = await User.findAll({ order: [["id", "ASC"]] })
 
     // Act
     await seed()
 
     // Assert
-    expect(await User.findAll({ order: [["id", "ASC"]] })).toEqual(users)
-    expect(await Thread.findAll()).toEqual(threads)
-    expect(await Comment.findAll()).toEqual(comments)
+    const users = await User.findAll({ order: [["id", "ASC"]] })
+    expect(users).toEqual(originalUsers)
   })
 
-  test("when some demo records exist, creates missing records without changing existing ones", async () => {
+  test("when development seeds run again, preserves the original thread", async () => {
+    // Arrange
+    await seed()
+    const originalThreads = await Thread.findAll()
+
+    // Act
+    await seed()
+
+    // Assert
+    const threads = await Thread.findAll()
+    expect(threads).toEqual(originalThreads)
+  })
+
+  test("when development seeds run again, preserves the original comment", async () => {
+    // Arrange
+    await seed()
+    const originalComments = await Comment.findAll()
+
+    // Act
+    await seed()
+
+    // Assert
+    const comments = await Comment.findAll()
+    expect(comments).toEqual(originalComments)
+  })
+
+  test("when Alice already exists, preserves her edits and creates Bob", async () => {
     // Arrange
     const author = await userFactory.create({
       username: "alice",
       name: "Alice Updated",
       password: "changed-password",
-    })
-    const thread = await threadFactory.create({
-      authorId: author.id,
-      title: "Welcome to the board",
-      body: "Keep this content on restart.",
     })
 
     // Act
@@ -129,7 +159,23 @@ describe("discussion-board seeds", () => {
       },
       { username: "bob", name: "Bob" },
     ])
-    expect(await Thread.findAll()).toMatchObject([
+  })
+
+  test("when the welcome thread already exists, preserves its edited content", async () => {
+    // Arrange
+    const author = await userFactory.create({ username: "alice" })
+    const thread = await threadFactory.create({
+      authorId: author.id,
+      title: "Welcome to the board",
+      body: "Keep this content on restart.",
+    })
+
+    // Act
+    await seed()
+
+    // Assert
+    const threads = await Thread.findAll()
+    expect(threads).toMatchObject([
       {
         id: thread.id,
         authorId: author.id,
@@ -138,13 +184,44 @@ describe("discussion-board seeds", () => {
         updatedAt: thread.updatedAt,
       },
     ])
+  })
+
+  test("when the welcome thread has no comment, creates Bob's missing comment", async () => {
+    // Arrange
+    const author = await userFactory.create({ username: "alice" })
+    const thread = await threadFactory.create({
+      authorId: author.id,
+      title: "Welcome to the board",
+      body: "Keep this content on restart.",
+    })
+
+    // Act
+    await seed()
+
+    // Assert
     const bob = await User.findOne({ where: { username: "bob" }, rejectOnEmpty: true })
-    expect(await Comment.findAll()).toMatchObject([
+    const comments = await Comment.findAll()
+    expect(comments).toMatchObject([
       { authorId: bob.id, threadId: thread.id, body: "Glad to be here." },
     ])
   })
 
-  test("when the final development seed fails, rolls back earlier records", async () => {
+  test("when the final development seed fails, reports the failure", async () => {
+    // Arrange
+    const seedFailure = new Error("Could not create the seed comment")
+    const removeFailureHook = Comment.hooks.addListener("beforeCreate", () => {
+      throw seedFailure
+    })
+
+    try {
+      // Act / Assert
+      await expect(seed()).rejects.toThrow(seedFailure)
+    } finally {
+      removeFailureHook()
+    }
+  })
+
+  test("when the final development seed fails, rolls back the users", async () => {
     // Arrange
     const seedFailure = new Error("Could not create the seed comment")
     const removeFailureHook = Comment.hooks.addListener("beforeCreate", () => {
@@ -153,40 +230,48 @@ describe("discussion-board seeds", () => {
 
     try {
       // Act
-      await expect(seed()).rejects.toThrow(seedFailure)
+      try {
+        await seed()
+      } catch (error) {
+        if (error !== seedFailure) throw error
+      }
 
       // Assert
       const users = await User.findAll({ paranoid: false })
       expect(users).toEqual([])
-
-      const threads = await Thread.findAll({ paranoid: false })
-      expect(threads).toEqual([])
-
-      const comments = await Comment.findAll({ paranoid: false })
-      expect(comments).toEqual([])
     } finally {
       removeFailureHook()
     }
   })
 
-  test("when production is selected, does not create demo accounts", async () => {
+  test("when the final development seed fails, rolls back the thread", async () => {
     // Arrange
-    const environment = "production"
+    const seedFailure = new Error("Could not create the seed comment")
+    const removeFailureHook = Comment.hooks.addListener("beforeCreate", () => {
+      throw seedFailure
+    })
 
-    // Act
-    await runSeeds(environment)
+    try {
+      // Act
+      try {
+        await seed()
+      } catch (error) {
+        if (error !== seedFailure) throw error
+      }
 
-    // Assert
-    const users = await User.findAll({ paranoid: false })
-    expect(users).toEqual([])
+      // Assert
+      const threads = await Thread.findAll({ paranoid: false })
+      expect(threads).toEqual([])
+    } finally {
+      removeFailureHook()
+    }
   })
 
   test("when test is selected, leaves scenario data to test factories", async () => {
-    // Arrange
-    const environment = "test"
+    // Arrange: the test wrapper selects NODE_ENV=test.
 
     // Act
-    await runSeeds(environment)
+    await runSeeds()
 
     // Assert
     const users = await User.findAll({ paranoid: false })

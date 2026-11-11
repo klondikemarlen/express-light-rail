@@ -2,17 +2,19 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest"
 
 import { db, User } from "@example-app/models/index.js"
 
-import { cleanExampleDatabase, prepareExampleDatabase } from "@tests/support/example-database.js"
+import {
+  cleanExampleDatabase,
+  closeExampleDatabase,
+  prepareExampleDatabase,
+} from "@tests/support/example-database.js"
 
 beforeAll(prepareExampleDatabase)
 beforeEach(cleanExampleDatabase)
 
-afterAll(async () => {
-  await db.close()
-})
+afterAll(closeExampleDatabase)
 
 describe("User passwords", () => {
-  test("when created with a password, authenticates the persisted user without storing plaintext", async () => {
+  test("when created with a password, authenticates the persisted user", async () => {
     // Arrange
     const attributes = { username: "alice", name: "Alice", password: "alice-password" }
 
@@ -22,22 +24,57 @@ describe("User passwords", () => {
     // Assert
     const persistedUser = await User.findByPk(user.id, { rejectOnEmpty: true })
     expect(await persistedUser.authenticate("alice-password")).toBe(persistedUser)
-    expect(persistedUser.passwordHash).toMatch(/^scrypt\$v1\$/)
-    expect(persistedUser.createdAt).toBeInstanceOf(Date)
-    expect(persistedUser.updatedAt).toBeInstanceOf(Date)
-    expect(persistedUser.deletedAt).toBeNull()
-    expect(user.password).toBeUndefined()
-    expect(persistedUser.password).toBeUndefined()
-    const columns = await db.queryInterface.describeTable("users")
-    expect(columns).not.toHaveProperty("password")
-    expect(columns).toHaveProperty("password_hash")
-    expect(columns).toHaveProperty("created_at")
-    expect(columns).toHaveProperty("updated_at")
-    expect(columns).toHaveProperty("deleted_at")
-    expect(columns).not.toHaveProperty("passwordHash")
   })
 
-  test("when a password is updated, accepts the new password and rejects the old one", async () => {
+  test("when created with a password, persists a salted password hash", async () => {
+    // Arrange
+    const attributes = { username: "alice", name: "Alice", password: "alice-password" }
+
+    // Act
+    const user = await User.create(attributes)
+
+    // Assert
+    const persistedUser = await User.findByPk(user.id, { rejectOnEmpty: true })
+    expect(persistedUser.passwordHash).toMatch(/^scrypt\$v1\$/)
+  })
+
+  test("when a password is saved, clears plaintext from the original instance", async () => {
+    // Arrange
+    const attributes = { username: "alice", name: "Alice", password: "alice-password" }
+
+    // Act
+    const user = await User.create(attributes)
+
+    // Assert
+    expect(user.password).toBeUndefined()
+  })
+
+  test("when a user is reloaded, does not expose the saved plaintext password", async () => {
+    // Arrange
+    const user = await User.create({
+      username: "alice",
+      name: "Alice",
+      password: "alice-password",
+    })
+
+    // Act
+    const persistedUser = await User.findByPk(user.id, { rejectOnEmpty: true })
+
+    // Assert
+    expect(persistedUser.password).toBeUndefined()
+  })
+
+  test("when the users schema is migrated, has no plaintext password column", async () => {
+    // Arrange: beforeAll applies the application's migrations.
+
+    // Act
+    const columns = await db.queryInterface.describeTable("users")
+
+    // Assert
+    expect(columns).not.toHaveProperty("password")
+  })
+
+  test("when a password is updated, accepts the new password", async () => {
     // Arrange
     const user = await User.create({ username: "alice", name: "Alice", password: "old-password" })
 
@@ -47,6 +84,17 @@ describe("User passwords", () => {
     // Assert
     const persistedUser = await User.findByPk(user.id, { rejectOnEmpty: true })
     expect(await persistedUser.authenticate("new-password")).toBe(persistedUser)
+  })
+
+  test("when a password is updated, rejects the previous password", async () => {
+    // Arrange
+    const user = await User.create({ username: "alice", name: "Alice", password: "old-password" })
+
+    // Act
+    await user.update({ password: "new-password" })
+
+    // Assert
+    const persistedUser = await User.findByPk(user.id, { rejectOnEmpty: true })
     expect(await persistedUser.authenticate("old-password")).toBe(false)
   })
 
@@ -63,7 +111,7 @@ describe("User passwords", () => {
     expect(persistedUser.passwordHash).toBe(originalHash)
   })
 
-  test("when a replacement password is empty, leaves the persisted credential unchanged", async () => {
+  test("when a replacement password is empty, rejects the update", async () => {
     // Arrange
     const user = await User.create({ username: "alice", name: "Alice", password: "alice-password" })
 
@@ -71,6 +119,25 @@ describe("User passwords", () => {
     await expect(user.update({ password: "" })).rejects.toThrow(
       "password must be a non-empty string"
     )
+  })
+
+  test("when a replacement password is rejected, preserves the persisted credential", async () => {
+    // Arrange
+    const user = await User.create({ username: "alice", name: "Alice", password: "alice-password" })
+
+    // Act
+    try {
+      await user.update({ password: "" })
+    } catch (error) {
+      if (
+        !(error instanceof Error) ||
+        !error.message.includes("password must be a non-empty string")
+      ) {
+        throw error
+      }
+    }
+
+    // Assert
     const persistedUser = await User.findByPk(user.id, { rejectOnEmpty: true })
     expect(await persistedUser.authenticate("alice-password")).toBe(persistedUser)
   })

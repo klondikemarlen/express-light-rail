@@ -1,7 +1,7 @@
 import { extname } from "node:path"
 import { fileURLToPath } from "node:url"
 
-import knex, { type Knex } from "knex"
+import knex from "knex"
 
 import {
   DATABASE_HOST,
@@ -16,35 +16,33 @@ import {
   NODE_ENV,
 } from "@example-app/config.js"
 
-export function createMigrationClient(databaseName = DATABASE_NAME, environment = NODE_ENV): Knex {
-  const extension = extname(fileURLToPath(import.meta.url))
-  const seedDirectories = []
-  if (environment === "development") {
-    seedDirectories.push(fileURLToPath(new URL(`./seeds/${environment}/`, import.meta.url)))
-  }
-
-  return knex({
-    client: "pg",
-    connection: {
-      host: DATABASE_HOST,
-      port: DATABASE_PORT,
-      database: databaseName,
-      user: DATABASE_USERNAME,
-      password: DATABASE_PASSWORD,
-    },
-    acquireConnectionTimeout: DB_POOL_ACQUIRE_MS,
-    pool: {
-      max: DB_POOL_MAX,
-      min: DB_POOL_MIN,
-      idleTimeoutMillis: DB_POOL_IDLE_MS,
-    },
-    migrations: {
-      directory: fileURLToPath(new URL("./migrations/", import.meta.url)),
-      loadExtensions: [extension],
-    },
-    seeds: {
-      directory: seedDirectories,
-      loadExtensions: [extension],
-    },
-  })
+const extension = extname(fileURLToPath(import.meta.url))
+const seedDirectories = []
+if (NODE_ENV === "development") {
+  seedDirectories.push(fileURLToPath(new URL("./seeds/development/", import.meta.url)))
 }
+
+export const migrationClient = knex({
+  client: "pg",
+  connection: {
+    host: DATABASE_HOST,
+    port: DATABASE_PORT,
+    database: DATABASE_NAME,
+    user: DATABASE_USERNAME,
+    password: DATABASE_PASSWORD,
+  },
+  acquireConnectionTimeout: DB_POOL_ACQUIRE_MS,
+  pool: {
+    max: DB_POOL_MAX,
+    min: DB_POOL_MIN,
+    idleTimeoutMillis: DB_POOL_IDLE_MS,
+  },
+  migrations: {
+    directory: fileURLToPath(new URL("./migrations/", import.meta.url)),
+    loadExtensions: [extension],
+  },
+  seeds: {
+    directory: seedDirectories,
+    loadExtensions: [extension],
+  },
+})

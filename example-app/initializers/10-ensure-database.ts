@@ -1,12 +1,28 @@
-import { DATABASE_NAME } from "@example-app/config.js"
-import { createMigrationClient } from "@example-app/db/migration-client.js"
+import knex from "knex"
+
+import {
+  DATABASE_HOST,
+  DATABASE_NAME,
+  DATABASE_PASSWORD,
+  DATABASE_PORT,
+  DATABASE_USERNAME,
+} from "@example-app/config.js"
 import { logger } from "@example-app/utils/logger.js"
 
 export async function initialize(): Promise<void> {
-  const migrationClient = createMigrationClient("postgres")
+  const migrationClient = knex({
+    client: "pg",
+    connection: {
+      host: DATABASE_HOST,
+      port: DATABASE_PORT,
+      database: "postgres",
+      user: DATABASE_USERNAME,
+      password: DATABASE_PASSWORD,
+    },
+  })
 
   try {
-    const databases = await migrationClient.raw<{ rows: Array<{ datname: string }> }>(
+    const databases = await migrationClient.raw<{ rows: unknown[] }>(
       "SELECT 1 FROM pg_database WHERE datname = ?",
       [DATABASE_NAME]
     )
