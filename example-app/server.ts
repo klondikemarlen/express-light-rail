@@ -6,7 +6,7 @@ import { API_PORT } from "@example-app/config.js"
 import { migrationClient } from "@example-app/db/migration-client.js"
 import { db } from "@example-app/models/index.js"
 import { importAndExecuteInitializers } from "@example-app/utils/import-and-execute-initializers.js"
-import { logger } from "@example-app/utils/logger.js"
+import logger from "@example-app/utils/logger.js"
 
 export const server = createServer(app)
 
