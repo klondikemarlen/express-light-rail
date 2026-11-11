@@ -16,7 +16,7 @@ The API listens at `http://localhost:3000`. To use another host port, run `API_P
 
 The application container runs the watched example command. Saving package or example TypeScript rebuilds and restarts the server; compilation errors stop it until corrected. Static HTML/CSS changes only need a browser refresh. Use `bin/dev npm ci` after dependency changes and `bin/dev down` to stop the project without deleting its database volume. Without a stable `EXAMPLE_JWT_SECRET`, restarts invalidate login tokens.
 
-Startup discovers numbered [initializers](initializers/) in filename order: ensure the PostgreSQL database, run pending Knex migrations, then run configured Knex seeds. Each initializer exports a named `initialize` function. Startup logs each initializer and pending migration; failures stop startup before the HTTP listener opens. Development seeds Alice, Bob, one welcome thread, and Bob's comment idempotently. Production and test do not run demo seeds. Subsequent startups create missing demo records without overwriting existing matching records.
+Startup discovers numbered [initializers](initializers/) in filename order: ensure the PostgreSQL database, run pending Knex migrations, then run configured Knex seeds. Each initializer exports a named `initialize` function. Add startup steps as numbered modules in that directory; [the loader utility](utils/import-and-execute-initializers.ts) discovers them, and [the server](server.ts) closes the shared migration client after initialization. Startup logs each initializer and pending migration; failures stop startup before the HTTP listener opens. Development seeds Alice, Bob, one welcome thread, and Bob's comment idempotently. Production and test do not run demo seeds. Subsequent startups create missing demo records without overwriting existing matching records.
 
 Each [migration](db/migrations/) creates one table: users, then threads, then comments, in foreign-key dependency order. Each `down` drops only that migration's table, so rollback runs in reverse order. After migrations have been applied in a shared environment, add new migrations for schema changes rather than editing applied history.
 
@@ -215,7 +215,7 @@ The [seed initializer](initializers/30-run-seeds.ts) calls Knex's `seed.run()` u
 
 The development seed uses a managed transaction with Sequelize 7's automatic transaction context, as in WRAP. Model queries inside the callback share that transaction without explicit `{ transaction }` options. If a write fails, all seed writes roll back.
 
-Authorized delete actions call the model's `destroy()` method directly. The model relationship owns comment cascading; a separate service is unnecessary for that single operation.
+Authorized comment deletion calls the model's `destroy()` method directly. Thread deletion uses `Threads.DestroyService` so its comments and the thread are soft-deleted in one managed transaction.
 
 Mutation requests accept JSON objects, URL-encoded fields, or multipart text fields. Shared API middleware rejects JSON arrays before policy filtering, so malformed attribute shapes return a client error rather than an internal failure.
 
