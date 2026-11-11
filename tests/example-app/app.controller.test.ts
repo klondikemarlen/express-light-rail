@@ -88,6 +88,7 @@ describe("discussion board", () => {
         body: "What are you building?",
       },
     })
+    expect(response.body.thread.id).not.toBe(existingThread.id)
   })
 
   test("when an author updates a thread title, preserves omitted body and ownership", async () => {
@@ -292,6 +293,7 @@ describe("discussion board", () => {
         threadId: thread.id,
       },
     })
+    expect(response.body.comment.id).not.toBe(existingComment.id)
   })
 
   test("when the thread author edits somebody else's comment, denies the mutation", async () => {
