@@ -1,0 +1,5 @@
+{
+  "lint": {
+    "executionWrapper": ["./bin/dev", "run", "-T", "app"]
+  }
+}
