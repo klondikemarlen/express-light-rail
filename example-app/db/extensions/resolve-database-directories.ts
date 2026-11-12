@@ -1,28 +1,21 @@
 import { existsSync } from "node:fs"
-import { join } from "node:path"
 import { fileURLToPath } from "node:url"
 
 /**
- * Resolves database directories beside the calling module, not the process's
- * working directory, so source and compiled startup use their own files.
- * Shared migrations always run in every environment; an environment directory
- * adds migrations after them. Seeds load only from their environment directory.
- * Environment directories are optional: omit them when no environment-specific
- * files exist, including when compilation produces no directory for empty input.
- * The shared migration directory is required and is left for Knex to validate.
+ * Resolves a database directory beside the calling module rather than the
+ * working directory. Native ESM has no __dirname; this preserves the source
+ * or compiled module's location when resolving migrations and seeds.
  */
-export function resolveDatabaseDirectories(
-  moduleUrl: string,
-  kind: "migrations" | "seeds",
-  environment: string
-): string[] {
-  const sharedDirectory = fileURLToPath(new URL(`./${kind}/`, moduleUrl))
-  const environmentDirectory = join(sharedDirectory, environment)
-  const directories = kind === "migrations" ? [sharedDirectory] : []
+export function resolveDatabaseDirectory(moduleUrl: string, relativeDirectory: string): string {
+  return fileURLToPath(new URL(relativeDirectory, moduleUrl))
+}
 
-  if (existsSync(environmentDirectory)) {
-    directories.push(environmentDirectory)
-  }
-
-  return directories
+/**
+ * Selects only the current environment's seeds. An absent directory means
+ * there are no seeds for that environment; compilation does not emit empty
+ * directories. Migration discovery must not use this optional-directory rule.
+ */
+export function resolveSeedDirectories(moduleUrl: string, environment: string): string[] {
+  const directory = resolveDatabaseDirectory(moduleUrl, `./seeds/${environment}/`)
+  return existsSync(directory) ? [directory] : []
 }

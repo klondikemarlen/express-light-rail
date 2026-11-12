@@ -12,7 +12,10 @@ import {
   DATABASE_USERNAME,
   NODE_ENV,
 } from "@example-app/config.js"
-import { resolveDatabaseDirectories } from "@example-app/db/extensions/resolve-database-directories.js"
+import {
+  resolveDatabaseDirectory,
+  resolveSeedDirectories,
+} from "@example-app/db/extensions/resolve-database-directories.js"
 import { determineRuntimeLoadExtensions } from "@example-app/db/extensions/determine-runtime-load-extensions.js"
 
 const migrationClient = knex({
@@ -31,12 +34,11 @@ const migrationClient = knex({
     idleTimeoutMillis: DATABASE_POOL_IDLE_TIMEOUT_MILLISECONDS,
   },
   migrations: {
-    directory: resolveDatabaseDirectories(import.meta.url, "migrations", NODE_ENV),
+    directory: resolveDatabaseDirectory(import.meta.url, "./migrations/"),
     loadExtensions: determineRuntimeLoadExtensions(import.meta.url),
-    sortDirsSeparately: true,
   },
   seeds: {
-    directory: resolveDatabaseDirectories(import.meta.url, "seeds", NODE_ENV),
+    directory: resolveSeedDirectories(import.meta.url, NODE_ENV),
     loadExtensions: determineRuntimeLoadExtensions(import.meta.url),
   },
 })
