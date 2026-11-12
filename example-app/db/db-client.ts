@@ -6,12 +6,12 @@ import {
   DATABASE_HOST,
   DATABASE_NAME,
   DATABASE_PASSWORD,
+  DATABASE_POOL_ACQUIRE_TIMEOUT_MILLISECONDS,
+  DATABASE_POOL_IDLE_TIMEOUT_MILLISECONDS,
+  DATABASE_POOL_MAXIMUM,
+  DATABASE_POOL_MINIMUM,
   DATABASE_PORT,
   DATABASE_USERNAME,
-  DB_POOL_ACQUIRE_MS,
-  DB_POOL_IDLE_MS,
-  DB_POOL_MAX,
-  DB_POOL_MIN,
   NODE_ENV,
 } from "@example-app/config.js"
 import logger from "@example-app/utils/logger.js"
@@ -37,10 +37,10 @@ export const SEQUELIZE_CONFIG: Options<PostgresDialect> = {
   logging: NODE_ENV === "development" ? sqlLogger : false,
 
   pool: {
-    max: DB_POOL_MAX,
-    min: DB_POOL_MIN,
-    acquire: DB_POOL_ACQUIRE_MS,
-    idle: DB_POOL_IDLE_MS,
+    max: DATABASE_POOL_MAXIMUM,
+    min: DATABASE_POOL_MINIMUM,
+    acquire: DATABASE_POOL_ACQUIRE_TIMEOUT_MILLISECONDS,
+    idle: DATABASE_POOL_IDLE_TIMEOUT_MILLISECONDS,
   },
 
   define: {

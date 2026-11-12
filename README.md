@@ -313,6 +313,8 @@ Migration and seed initializers share the configured client in `example-app/db/m
 
 Use `API_PORT=3352 bin/dev up -d app` to change the host HTTP port. Set a unique `COMPOSE_PROJECT_NAME` for an isolated checkout; its containers, dependencies, and database volume remain separate from other projects. `bin/dev down` stops the project without deleting database data. Do not use another application's database for these tests.
 
+Database configuration uses `DATABASE_*` names, matching the Compose service `database` and the `bin/dev database` command. When updating an existing checkout, run `bin/dev down` before pulling the rename, update any local `DB_*` overrides to the names in `example-app/config.ts`, then start normally. The `postgres_data` volume and database names are unchanged; do not remove the volume.
+
 Run TypeScript scripts with `bin/dev tsx --tsconfig example-app/tsconfig.json example-app/app.ts`. The helper forwards arguments to `tsx`; it supports native ESM and TypeScript path aliases without `tsconfig-paths/register`. It does not type-check or emit decorator metadata: keep `bin/dev check-types` and compiled example startup. See [production-project upgrade instructions](docs/tooling.md#typescript-script-runner-upgrade) for WRAP and Travel Authorization.
 
 OMP Verifier uses `.omp-verifier.json` for Docker-backed lint and `.marlens-verifications.json` for the finite `bin/dev npm run check-runtime` import check. This builds the package and loads the example application without starting its HTTP listener; it does not prove database connectivity or server startup. Build the Docker image and install dependencies before running verification.

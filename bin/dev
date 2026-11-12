@@ -130,8 +130,8 @@ class DevHelper
     knex("seed:#{action}", *args.drop(1), **kwargs)
   end
 
-  def db(*args, **kwargs)
-    compose(*%w[exec db], *args, **kwargs)
+  def database(*args, **kwargs)
+    compose(*%w[exec database], *args, **kwargs)
   end
 
   ##
