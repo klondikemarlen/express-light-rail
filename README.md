@@ -310,6 +310,8 @@ The example uses PostgreSQL, with separate development and test databases. Compo
 
 Migration and seed initializers share the configured client in `example-app/db/migration-client.ts`. Development SQL is compacted with `pg-minify` and sent through Winston; SQL logging is disabled in test and production.
 
+Import the configured client with `import migrationClient from "@example-app/db/migration-client.js"`. Database discovery helpers in `example-app/db/extensions/` resolve paths beside that module and select its runtime file extension. Every environment loads shared `db/migrations/` first, followed by optional `db/migrations/<NODE_ENV>/` migrations. Use unique migration filenames across both directories. Seeds load only from optional `db/seeds/<NODE_ENV>/`; only development currently supplies seeds. Missing environment directories mean there are no environment-specific files, not that shared migrations are skipped.
+
 Use `API_PORT=3352 bin/dev up -d app` to change the host HTTP port. Set a unique `COMPOSE_PROJECT_NAME` for an isolated checkout; its containers, dependencies, and database volume remain separate from other projects. `bin/dev down` stops the project without deleting database data. Do not use another application's database for these tests.
 
 Database configuration uses `DATABASE_*` names, matching the Compose service `database` and the `bin/dev database` command. When updating an existing checkout, run `bin/dev down` before pulling the rename, update any local `DB_*` overrides to the names in `example-app/config.ts`, then start normally. The `postgres_data` volume and database names are unchanged; do not remove the volume.
