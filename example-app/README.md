@@ -20,7 +20,7 @@ Startup discovers numbered [initializers](initializers/) in filename order: ensu
 
 Each [migration](db/migrations/) creates one table: users, then threads, then comments, in foreign-key dependency order. Each `down` drops only that migration's table, so rollback runs in reverse order. After migrations have been applied in a shared environment, add new migrations for schema changes rather than editing applied history.
 
-Compose owns the development database connection and persistent `postgres_data` volume. The pool defaults to five connections, with a 30-second acquisition timeout and a 10-second idle timeout; `DB_POOL_MAX`, `DB_POOL_MIN`, `DB_POOL_ACQUIRE_MS`, and `DB_POOL_IDLE_MS` configure it. Tests use the separate `express_light_rail_test` database. There is no in-memory database path or schema repair during startup.
+Compose owns the `database` service and persistent `postgres_data` volume. Connection settings use `DATABASE_HOST`, `DATABASE_PORT`, `DATABASE_NAME`, `DATABASE_USERNAME`, and `DATABASE_PASSWORD`. The pool defaults to five connections, with a 30-second acquisition timeout and a 10-second idle timeout; `DATABASE_POOL_MAXIMUM`, `DATABASE_POOL_MINIMUM`, `DATABASE_POOL_ACQUIRE_TIMEOUT_MILLISECONDS`, and `DATABASE_POOL_IDLE_TIMEOUT_MILLISECONDS` configure it. Tests use the separate `express_light_rail_test` database. There is no in-memory database path or schema repair during startup.
 
 Development SQL uses a named `sqlLogger` callback with `pg-minify`, following Travel Authorization's PostgreSQL setup. Import the application's configured Winston logger with `import logger from "@example-app/utils/logger.js"`. SQL logging is disabled in test and production.
 
