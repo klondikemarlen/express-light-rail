@@ -10,6 +10,7 @@ import {
   Attribute,
   AutoIncrement,
   BelongsTo,
+  Default,
   NotNull,
   PrimaryKey,
   Table,
@@ -47,10 +48,20 @@ export class Comment extends Model<InferAttributes<Comment>, InferCreationAttrib
   @NotNull
   declare threadId: number
 
+  @Attribute(DataTypes.DATE)
+  @NotNull
+  @Default(DataTypes.NOW)
   declare createdAt: CreationOptional<Date>
-  declare updatedAt: CreationOptional<Date>
-  declare deletedAt: CreationOptional<Date | null>
 
+  @Attribute(DataTypes.DATE)
+  @NotNull
+  @Default(DataTypes.NOW)
+  declare updatedAt: CreationOptional<Date>
+
+  @Attribute(DataTypes.DATE)
+  declare deletedAt: Date | null
+
+  // Associations
   @BelongsTo(() => User, {
     foreignKey: {
       name: "authorId",
