@@ -91,6 +91,10 @@ class DevHelper
     run(*%w[app npm], *args, **kwargs)
   end
 
+  def tsx(*args, **kwargs)
+    run(*%w[app npm run tsx --], *args, **kwargs)
+  end
+
   def check_types(*args, **kwargs)
     run(*%w[app npm run check-types], *args, **kwargs)
   end
