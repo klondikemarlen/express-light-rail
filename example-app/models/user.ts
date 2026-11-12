@@ -16,9 +16,7 @@ import {
   ValidateAttribute,
 } from "@sequelize/core/decorators-legacy"
 
-import { hashPassword, verifyPassword } from "@example-app/utils/password.js"
-
-const DUMMY_PASSWORD_HASH = `scrypt$v1$${Buffer.alloc(16).toString("base64url")}$${Buffer.alloc(64).toString("base64url")}`
+import { hashPassword, verifyPassword } from "@example-app/lib/password.js"
 
 @Table({
   tableName: "users",
@@ -85,8 +83,8 @@ export class User extends Model<InferAttributes<User>, InferCreationAttributes<U
 
   // Helper Methods
   async authenticate(password: string): Promise<User | false> {
-    const passwordMatches = await verifyPassword(password, this.passwordHash || DUMMY_PASSWORD_HASH)
-    if (!this.passwordHash || !passwordMatches) return false
+    const passwordMatches = await verifyPassword(password, this.passwordHash)
+    if (!passwordMatches) return false
 
     return this
   }
