@@ -12,8 +12,8 @@ import {
   DATABASE_USERNAME,
   NODE_ENV,
 } from "@example-app/config.js"
-import { getDatabaseDirectories } from "@example-app/db/extensions/get-database-directories.js"
-import { getRuntimeLoadExtensions } from "@example-app/db/extensions/get-runtime-load-extensions.js"
+import { resolveDatabaseDirectories } from "@example-app/db/extensions/resolve-database-directories.js"
+import { determineRuntimeLoadExtensions } from "@example-app/db/extensions/determine-runtime-load-extensions.js"
 
 const migrationClient = knex({
   client: "pg",
@@ -31,13 +31,13 @@ const migrationClient = knex({
     idleTimeoutMillis: DATABASE_POOL_IDLE_TIMEOUT_MILLISECONDS,
   },
   migrations: {
-    directory: getDatabaseDirectories(import.meta.url, "migrations", NODE_ENV),
-    loadExtensions: getRuntimeLoadExtensions(import.meta.url),
+    directory: resolveDatabaseDirectories(import.meta.url, "migrations", NODE_ENV),
+    loadExtensions: determineRuntimeLoadExtensions(import.meta.url),
     sortDirsSeparately: true,
   },
   seeds: {
-    directory: getDatabaseDirectories(import.meta.url, "seeds", NODE_ENV),
-    loadExtensions: getRuntimeLoadExtensions(import.meta.url),
+    directory: resolveDatabaseDirectories(import.meta.url, "seeds", NODE_ENV),
+    loadExtensions: determineRuntimeLoadExtensions(import.meta.url),
   },
 })
 

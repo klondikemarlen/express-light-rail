@@ -11,7 +11,7 @@ import { fileURLToPath } from "node:url"
  * files exist, including when compilation produces no directory for empty input.
  * The shared migration directory is required and is left for Knex to validate.
  */
-export function getDatabaseDirectories(
+export function resolveDatabaseDirectories(
   moduleUrl: string,
   kind: "migrations" | "seeds",
   environment: string
