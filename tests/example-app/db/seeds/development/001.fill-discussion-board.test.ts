@@ -221,7 +221,7 @@ describe("discussion-board seeds", () => {
     }
   })
 
-  test("when the final development seed fails, rolls back the users", async () => {
+  test("when the final development seed fails, retains the created users", async () => {
     // Arrange
     const seedFailure = new Error("Could not create the seed comment")
     const removeFailureHook = Comment.hooks.addListener("beforeCreate", () => {
@@ -232,39 +232,47 @@ describe("discussion-board seeds", () => {
       // Act
       try {
         await seed()
+        throw new Error("Expected the seed comment creation to fail")
       } catch (error) {
         if (error !== seedFailure) throw error
       }
 
       // Assert
-      const users = await User.findAll({ paranoid: false })
-      expect(users).toEqual([])
+      const users = await User.findAll({ order: [["username", "ASC"]] })
+      expect(users.map((user) => user.username)).toEqual(["alice", "bob"])
     } finally {
       removeFailureHook()
     }
   })
 
-  test("when the final development seed fails, rolls back the thread", async () => {
+  test("when development seeds retry after a failure, completes the existing discussion", async () => {
     // Arrange
     const seedFailure = new Error("Could not create the seed comment")
     const removeFailureHook = Comment.hooks.addListener("beforeCreate", () => {
       throw seedFailure
     })
-
     try {
-      // Act
-      try {
-        await seed()
-      } catch (error) {
-        if (error !== seedFailure) throw error
-      }
-
-      // Assert
-      const threads = await Thread.findAll({ paranoid: false })
-      expect(threads).toEqual([])
+      await seed()
+      throw new Error("Expected the seed comment creation to fail")
+    } catch (error) {
+      if (error !== seedFailure) throw error
     } finally {
       removeFailureHook()
     }
+    const bob = await User.findOne({ where: { username: "bob" }, rejectOnEmpty: true })
+    const thread = await Thread.findOne({
+      where: { title: "Welcome to the board" },
+      rejectOnEmpty: true,
+    })
+
+    // Act
+    await seed()
+
+    // Assert
+    const comments = await Comment.findAll()
+    expect(
+      comments.map(({ authorId, threadId, body }) => ({ authorId, threadId, body }))
+    ).toEqual([{ authorId: bob.id, threadId: thread.id, body: "Glad to be here." }])
   })
 
   test("when test is selected, leaves scenario data to test factories", async () => {
