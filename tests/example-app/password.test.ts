@@ -122,6 +122,8 @@ describe("User passwords", () => {
   })
 
   test("when a replacement password is rejected, preserves the persisted credential", async () => {
+    expect.assertions(1)
+
     // Arrange
     const user = await User.create({ username: "alice", name: "Alice", password: "alice-password" })
 
@@ -135,11 +137,11 @@ describe("User passwords", () => {
       ) {
         throw error
       }
-    }
 
-    // Assert
-    const persistedUser = await User.findByPk(user.id, { rejectOnEmpty: true })
-    expect(await persistedUser.authenticate("alice-password")).toBe(persistedUser)
+      // Assert
+      const persistedUser = await User.findByPk(user.id, { rejectOnEmpty: true })
+      expect(await persistedUser.authenticate("alice-password")).toBe(persistedUser)
+    }
   })
 
   test("when a legacy user has no credential, cannot authenticate", async () => {
