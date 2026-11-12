@@ -1,6 +1,7 @@
 #!/usr/bin/env ruby
 
 require "rdoc"
+require "shellwords"
 
 require_relative "./github_api"
 require_relative "./pull_request_editor"
@@ -8,7 +9,6 @@ require_relative "./pull_request_editor"
 class DevHelper
   # Support dashes in command names
   COMMAND_TO_METHOD = {
-    "ts-node" => :ts_node,
     "check-types" => :check_types,
     "branch-from" => :branch_from,
     "changes-from" => :changes_from,
@@ -92,8 +92,8 @@ class DevHelper
     run(*%w[app npm], *args, **kwargs)
   end
 
-  def ts_node(*args, **kwargs)
-    run(*%w[app npm run ts-node], *args, **kwargs)
+  def tsx(*args, **kwargs)
+    run(*%w[app npm run tsx --], *args.map { |argument| Shellwords.escape(argument) }, **kwargs)
   end
 
   def check_types(*args, **kwargs)
@@ -130,8 +130,8 @@ class DevHelper
     knex("seed:#{action}", *args.drop(1), **kwargs)
   end
 
-  def db(*args, **kwargs)
-    compose(*%w[exec db], *args, **kwargs)
+  def database(*args, **kwargs)
+    compose(*%w[exec database], *args, **kwargs)
   end
 
   ##
@@ -142,7 +142,7 @@ class DevHelper
   #   dev branch-from https://github.com/icefoganalytics/internal-data-portal/issues/98
   #   #=> git checkout -b issue-98/switch-test-suite-from-jest-to-vitest
   #
-  def branch_from(github_issue_url, *args, **kwargs)
+  def branch_from(github_issue_url, *_args, **_kwargs)
     if github_issue_url.include?("github.com")
       branch_name = GithubApi.build_branch_name(github_issue_url)
     else
@@ -165,7 +165,7 @@ class DevHelper
     exit(0)
   end
 
-  def ownit(*args, **kwargs)
+  def ownit(*args, **_kwargs)
     file_or_directory = args[0]
     raise ScriptError, "Must provide a file or directory path." if file_or_directory.nil?
 
@@ -188,7 +188,7 @@ class DevHelper
 
   ##
   # Generate help documentation.
-  def help(*args, **kwargs)
+  def help(*_args, **_kwargs)
     rdoc = RDoc::RDoc.new
     rdoc_arguements = %w[--dry-run --quiet] + [__FILE__]
     rdoc.document(rdoc_arguements)

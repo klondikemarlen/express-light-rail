@@ -69,6 +69,34 @@ First compare effective settings and run the consumer's checks with host hooks a
 
 Run `bash tests/fixtures/tooling/postgresql/scripts/smoke.sh` and the matching `tsql` script from the checkout. With no argument each script builds and packs local source; pass `/absolute/path/to/express-light-rail-<version>.tgz` as its first argument to install an exact already-fetched release instead. Each fixture records the installed version. A local pack does not prove registry publication.
 
+## TypeScript script runner upgrade
+
+The repository provides `bin/dev tsx` for one-off TypeScript execution. Unlike the old CommonJS `ts-node -r tsconfig-paths/register` command, `tsx` also handles this repository's native ESM and path aliases. The example still compiles with TypeScript before Node starts the server; in the discussion-board example its watcher also rebuilds the package consumed by the application. Replacing that watcher with `tsx watch` alone would leave package changes unbuilt.
+
+### WRAP and Travel Authorization
+
+These are upgrade instructions, not completed host migrations. The reviewed `api/package.json` files use `ts-node` for scripts, initializers, and Knex, and `ts-node-dev` for servers. WRAP additionally starts `src/jobs-server.ts`; Travel Authorization starts `src/scheduler.ts`. Their builds already use `tsc && tsc-alias`.
+
+Source baseline: Travel Authorization at [`8c236048`](https://github.com/icefoganalytics/travel-authorization/tree/8c2360484ae0766fe9f51c8c2d217f130fb721ab), specifically [`api/package.json`](https://github.com/icefoganalytics/travel-authorization/blob/8c2360484ae0766fe9f51c8c2d217f130fb721ab/api/package.json), [`api/tsconfig.json`](https://github.com/icefoganalytics/travel-authorization/blob/8c2360484ae0766fe9f51c8c2d217f130fb721ab/api/tsconfig.json), and [`bin/dev`](https://github.com/icefoganalytics/travel-authorization/blob/8c2360484ae0766fe9f51c8c2d217f130fb721ab/bin/dev). WRAP was inspected locally at `b9a9d3691394916fd9485146e3e719f9a3bd5ea2` at the same paths; that repository is private. An authorized reviewer must inspect those WRAP sources before certifying its migration instructions. Neither source inspection nor this guide proves host runtime compatibility.
+
+1. In a host-owned branch, install `tsx` as an API development dependency through that project's Docker wrapper: run `npm install --save-dev tsx` in the API service, then commit `api/package.json` and its lockfile. Verify the installed runner's Node requirement against the development image. This repository uses Node 24.15; do not infer the host's deployed version from it.
+2. Add `"tsx": "tsx"` to `api/package.json`. Replace the `ts_node` method and `"ts-node"` command mapping in the host's `bin/dev` with the method below. Update documented/manual script invocations to `bin/dev tsx path/to/script.ts`. Do not add a misleading `ts-node` compatibility alias.
+
+   ```ruby
+   def tsx(*args, **kwargs)
+     run(*%w[api npm run tsx --], *args, **kwargs)
+   end
+   ```
+
+   Preserve the host wrapper's argument transport. The inspected WRAP wrapper already uses `Shellwords.join` for Compose arguments, so pass raw arguments as above. Travel Authorization still joins them as shell text: require Ruby's `shellwords` and use `*args.map { |argument| Shellwords.escape(argument) }` in that helper, as this repository does. Do not double-escape arguments in an argv-safe wrapper. Verify a quoted `-e` expression and a script argument containing spaces before adopting the helper.
+
+3. Keep the host's package module format, `api/tsconfig.json`, aliases, `build`, and deployed Node entrypoint unchanged. Run from the API working directory so `tsx` finds its configuration; use `--tsconfig` for a different configuration. Do not copy this repository's `@example-app/*` alias into a host.
+4. Keep `check-types` as an explicit required check. `tsx` transpiles without type checking and does **not** emit `emitDecoratorMetadata`; `--files` and `--logError` are not replacement flags. Audit decorators and runtime reflection before moving a script. Code relying on emitted design metadata must retain its TypeScript compiler path. Exercise imports, aliases, model initialization, and actual script results in the host's isolated development/test environment.
+5. The first cutover is only the manual script command. Keep `ts-node`, `ts-node-dev`, and `tsconfig-paths` while initializers, Knex, or server commands still use them. A later server cutover can use `tsx watch src/server.ts`, `tsx watch src/jobs-server.ts` for WRAP, or `tsx watch src/scheduler.ts` for Travel Authorization, preserving required debugger options and container exposure policy. Verify restart after an edit, shutdown, health, authentication, and the job/scheduler lifecycle before adopting those changes.
+6. Migrate initializer and Knex commands separately only after proving their dynamic TypeScript loading and database lifecycle. Use the host's isolated test database, not production or development data, for migration/seed checks. Remove old scripts and dependencies only after their last caller is migrated. Roll back the affected command and lockfile together if the new runner changes behavior.
+
+For finite runtime verification, choose a host-owned entrypoint that imports the application without listening, starting workers, running migrations, or opening persistent connections. Configure `.marlens-verifications.json` to execute that entrypoint through the host wrapper, with `fullTypecheck` pointing to its existing type check. This repository's `check-runtime` imports `example-app/app.ts`; it is not a substitute for live startup verification. Keep lint bindings in the owning package's `.omp-verifier.json`.
+
 ## Ownership boundaries
 
 The package owns reusable config values only. Consumer applications continue to own `bin/dev` or other development wrappers, Docker/Compose services, service names, gateway and DevHelper behavior, credentials, cloud helpers, host-specific database setup, and deployment configuration. Reuse those owners' documented commands; do not copy them into this package or these presets.
