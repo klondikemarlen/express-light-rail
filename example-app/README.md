@@ -215,7 +215,7 @@ Models do not call `Model.init` or import the database client. Attribute and ass
 
 The [seed initializer](initializers/30-run-seeds.ts) calls Knex's `seed.run()` using the directories configured in [`db/migration-client.ts`](db/migration-client.ts), rather than importing individual seed files. Development loads [`db/seeds/development/`](db/seeds/development/); production and test configure no seed directories. Unknown environments are rejected rather than falling back to development. Each demo record is looked up with `findOne` and created with `create` only if absent; existing matches are left untouched. Users match by username, threads by author and title, and comments by author, thread, and body. Changing a lookup field or deleting a demo post allows the original demo content to be created again on the next startup.
 
-The development seed uses a managed transaction with Sequelize 7's automatic transaction context, as in WRAP. Model queries inside the callback share that transaction without explicit `{ transaction }` options. If a write fails, all seed writes roll back.
+The development seed runs without a transaction. If a write fails, the error propagates and earlier records remain. Rerun the seed to create missing records; existing matches are left unchanged.
 
 Authorized comment deletion calls the model's `destroy()` method directly. Thread deletion uses `Threads.DestroyService` so its comments and the thread are soft-deleted in one managed transaction.
 
