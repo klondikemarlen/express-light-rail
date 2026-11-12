@@ -3,11 +3,7 @@ import { BaseApiError } from "express-light-rail"
 
 import { Thread } from "@example-app/models/index.js"
 import { ThreadsPolicy } from "@example-app/policies/index.js"
-import {
-  CreateService,
-  DestroyService,
-  UpdateService,
-} from "@example-app/services/threads/index.js"
+import { CreateService, DestroyService } from "@example-app/services/threads/index.js"
 import { ShowSerializer } from "@example-app/serializers/threads/index.js"
 
 import { ApplicationController } from "@example-app/controllers/application-controller.js"
@@ -68,7 +64,7 @@ export class ThreadsController extends ApplicationController<Thread> {
     }
 
     const permittedAttributes = policy.permitAttributesForUpdate(this.request.body)
-    const updatedThread = await UpdateService.perform(thread, permittedAttributes)
+    const updatedThread = await thread.update(permittedAttributes)
     const serializedThread = ShowSerializer.perform(updatedThread)
     return this.response.json({
       thread: serializedThread,

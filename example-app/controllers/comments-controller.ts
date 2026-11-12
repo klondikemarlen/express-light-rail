@@ -3,7 +3,7 @@ import { BaseApiError } from "express-light-rail"
 
 import { Comment, Thread } from "@example-app/models/index.js"
 import { CommentsPolicy } from "@example-app/policies/index.js"
-import { CreateService, UpdateService } from "@example-app/services/comments/index.js"
+import { CreateService } from "@example-app/services/comments/index.js"
 import { ShowSerializer } from "@example-app/serializers/comments/index.js"
 
 import { ApplicationController } from "@example-app/controllers/application-controller.js"
@@ -77,7 +77,7 @@ export class CommentsController extends ApplicationController<Comment> {
     }
 
     const permittedAttributes = policy.permitAttributesForUpdate(this.request.body)
-    const updatedComment = await UpdateService.perform(comment, permittedAttributes)
+    const updatedComment = await comment.update(permittedAttributes)
     const serializedComment = ShowSerializer.perform(updatedComment)
     return this.response.json({
       comment: serializedComment,
