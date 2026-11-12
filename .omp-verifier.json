@@ -1,5 +1,19 @@
 {
   "lint": {
-    "executionWrapper": ["./bin/dev", "run", "-T", "app"]
+    "executionWrapper": ["./bin/dev", "run", "-T", "app"],
+    "commands": {
+      "ruby": {
+        "tool": "rubocop",
+        "command": [
+          "./bin/dev", "run", "-T", "app", "rubocop", "--lint", "--enable-pending-cops", "--",
+          "bin/dev", "bin/github_api.rb", "bin/pull_request_editor.rb"
+        ]
+      },
+      "shell": {
+        "tool": "shellcheck",
+        "command": ["./bin/dev", "run", "-T", "app", "shellcheck", "--"],
+        "appendPaths": true
+      }
+    }
   }
 }
