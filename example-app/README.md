@@ -213,6 +213,8 @@ Services follow WRAP's resource folders rather than repeating the resource in ev
 
 Models do not call `Model.init` or import the database client. Attribute and association decorators live with the owning class; `models/index.ts` calls `db.addModels(...)` once. Schema changes belong in self-contained Knex migrations, not model synchronization or initializer conditionals. A migration must not import a current model definition.
 
+Password cryptography lives in the application-local `lib/password.ts`, not the framework's public API. The user model hashes and clears virtual plaintext on save so direct model, factory, and seed callers share the same persistence contract. `Users.AuthenticateService` owns login validation, lookup, and errors; the password library performs dummy verification for missing credentials.
+
 The [seed initializer](initializers/30-run-seeds.ts) calls Knex's `seed.run()` using the directories configured in [`db/migration-client.ts`](db/migration-client.ts), rather than importing individual seed files. Seeds are selected from `db/seeds/<NODE_ENV>/`; an absent directory means no seeds, with no fallback to development. Each demo record is looked up with `findOne` and created with `create` only if absent; existing matches are left untouched. Users match by username, threads by author and title, and comments by author, thread, and body. Changing a lookup field or deleting a demo post allows the original demo content to be created again on the next startup.
 
 The development seed runs without a transaction. If a write fails, the error propagates and earlier records remain. Rerun the seed to create missing records; existing matches are left unchanged.
