@@ -4,15 +4,28 @@ import { resolve } from "node:path"
 export const NODE_ENV = process.env.NODE_ENV || "development"
 export const IS_PRODUCTION = NODE_ENV === "production"
 export const API_PORT = Number(process.env.API_PORT ?? 3000)
-export const DATABASE_HOST = process.env.DB_HOST ?? "localhost"
-export const DATABASE_PORT = readDatabaseInteger("DB_PORT", 5432, 1, 65535)
-export const DATABASE_NAME = process.env.DB_NAME ?? "express_light_rail_development"
-export const DATABASE_USERNAME = process.env.DB_USER ?? "postgres"
-export const DATABASE_PASSWORD = process.env.DB_PASS ?? ""
-export const DB_POOL_MAX = readDatabaseInteger("DB_POOL_MAX", 5, 1)
-export const DB_POOL_MIN = readDatabaseInteger("DB_POOL_MIN", 0, 0, DB_POOL_MAX)
-export const DB_POOL_ACQUIRE_MS = readDatabaseInteger("DB_POOL_ACQUIRE_MS", 30_000, 1)
-export const DB_POOL_IDLE_MS = readDatabaseInteger("DB_POOL_IDLE_MS", 10_000, 1)
+export const DATABASE_HOST = process.env.DATABASE_HOST ?? "localhost"
+export const DATABASE_PORT = readDatabaseInteger("DATABASE_PORT", 5432, 1, 65535)
+export const DATABASE_NAME = process.env.DATABASE_NAME ?? "express_light_rail_development"
+export const DATABASE_USERNAME = process.env.DATABASE_USERNAME ?? "postgres"
+export const DATABASE_PASSWORD = process.env.DATABASE_PASSWORD ?? ""
+export const DATABASE_POOL_MAXIMUM = readDatabaseInteger("DATABASE_POOL_MAXIMUM", 5, 1)
+export const DATABASE_POOL_MINIMUM = readDatabaseInteger(
+  "DATABASE_POOL_MINIMUM",
+  0,
+  0,
+  DATABASE_POOL_MAXIMUM
+)
+export const DATABASE_POOL_ACQUIRE_TIMEOUT_MILLISECONDS = readDatabaseInteger(
+  "DATABASE_POOL_ACQUIRE_TIMEOUT_MILLISECONDS",
+  30_000,
+  1
+)
+export const DATABASE_POOL_IDLE_TIMEOUT_MILLISECONDS = readDatabaseInteger(
+  "DATABASE_POOL_IDLE_TIMEOUT_MILLISECONDS",
+  10_000,
+  1
+)
 
 export const DEFAULT_LOG_LEVEL = process.env.EXAMPLE_LOG_LEVEL || "info"
 export const FRONTEND_ORIGIN = new URL(process.env.FRONTEND_URL || "http://localhost:3000").origin

@@ -1,15 +1,15 @@
 x-default-environment: &default-environment
   TZ: UTC
   NODE_ENV: development
-  DB_HOST: db
-  DB_PORT: 5432
-  DB_NAME: express_light_rail_development
-  DB_USER: &database-username express_light_rail
-  DB_PASS: &database-password DevPwd99!
-  DB_POOL_MAX: "${DB_POOL_MAX:-5}"
-  DB_POOL_MIN: "${DB_POOL_MIN:-0}"
-  DB_POOL_ACQUIRE_MS: "${DB_POOL_ACQUIRE_MS:-30000}"
-  DB_POOL_IDLE_MS: "${DB_POOL_IDLE_MS:-10000}"
+  DATABASE_HOST: database
+  DATABASE_PORT: 5432
+  DATABASE_NAME: express_light_rail_development
+  DATABASE_USERNAME: &database-username express_light_rail
+  DATABASE_PASSWORD: &database-password DevPwd99!
+  DATABASE_POOL_MAXIMUM: "${DATABASE_POOL_MAXIMUM:-5}"
+  DATABASE_POOL_MINIMUM: "${DATABASE_POOL_MINIMUM:-0}"
+  DATABASE_POOL_ACQUIRE_TIMEOUT_MILLISECONDS: "${DATABASE_POOL_ACQUIRE_TIMEOUT_MILLISECONDS:-30000}"
+  DATABASE_POOL_IDLE_TIMEOUT_MILLISECONDS: "${DATABASE_POOL_IDLE_TIMEOUT_MILLISECONDS:-10000}"
   EXAMPLE_JWT_SECRET: "${EXAMPLE_JWT_SECRET:-}"
 
 services:
@@ -28,7 +28,7 @@ services:
       - ./:/usr/src/app
       - node_modules:/usr/src/app/node_modules
     depends_on:
-      db:
+      database:
         condition: service_healthy
 
   test_app:
@@ -41,16 +41,16 @@ services:
     environment:
       <<: *default-environment
       NODE_ENV: test
-      DB_NAME: express_light_rail_test
+      DATABASE_NAME: express_light_rail_test
       EXAMPLE_LOG_LEVEL: error
     volumes:
       - ./:/usr/src/app
       - node_modules:/usr/src/app/node_modules
     depends_on:
-      db:
+      database:
         condition: service_healthy
 
-  db:
+  database:
     image: postgres:18-alpine
     environment:
       POSTGRES_USER: *database-username
