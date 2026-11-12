@@ -1,5 +1,6 @@
 require "tempfile"
 require "open3"
+require "fileutils"
 
 ##
 # Supports fetching and editing PR descriptions from a full GitHub PR URL using SSH and GitHub CLI.
@@ -17,7 +18,7 @@ class PullRequestEditor
 
     app_root = File.expand_path(File.join(File.dirname(__FILE__), ".."))
     tmp_dir = File.join(app_root, "tmp")
-    Dir.mkdir(tmp_dir) unless Dir.exist?(tmp_dir)
+    FileUtils.mkdir_p(tmp_dir)
 
     Tempfile.create(["pull_request_description_#{pull_request_number}", ".md"], tmp_dir) do |file|
       file.write(pull_request_body)
@@ -38,8 +39,6 @@ class PullRequestEditor
       end
     end
   end
-
-  private
 
   # Extracts the repository name and PR number from a full GitHub PR URL
   def self.extract_repo_and_pull_request_number(pull_request_url)
@@ -77,4 +76,6 @@ class PullRequestEditor
       puts "Error updating PR description: #{stderr}"
     end
   end
+
+  private_class_method :extract_repo_and_pull_request_number, :fetch_pull_request_body, :update_pull_request_body
 end
