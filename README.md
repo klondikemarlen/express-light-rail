@@ -312,6 +312,8 @@ Migration and seed initializers share the configured client in `example-app/db/m
 
 Use `API_PORT=3352 bin/dev up -d app` to change the host HTTP port. Set a unique `COMPOSE_PROJECT_NAME` for an isolated checkout; its containers, dependencies, and database volume remain separate from other projects. `bin/dev down` stops the project without deleting database data. Do not use another application's database for these tests.
 
+The example compiles TypeScript with `tsc` and runs the emitted JavaScript with Node; there is no `ts-node` command. OMP Verifier uses `.omp-verifier.json` to run the existing non-fixing lint script through `bin/dev run -T app`. Build the Docker image and install dependencies before running verification.
+
 ## Publishing
 
 Publishing is intentionally boring npm:
