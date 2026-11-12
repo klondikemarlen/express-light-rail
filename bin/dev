@@ -8,7 +8,6 @@ require_relative "./pull_request_editor"
 class DevHelper
   # Support dashes in command names
   COMMAND_TO_METHOD = {
-    "ts-node" => :ts_node,
     "check-types" => :check_types,
     "branch-from" => :branch_from,
     "changes-from" => :changes_from,
@@ -90,10 +89,6 @@ class DevHelper
 
   def npm(*args, **kwargs)
     run(*%w[app npm], *args, **kwargs)
-  end
-
-  def ts_node(*args, **kwargs)
-    run(*%w[app npm run ts-node], *args, **kwargs)
   end
 
   def check_types(*args, **kwargs)
