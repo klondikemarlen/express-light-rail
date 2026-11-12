@@ -12,11 +12,9 @@ import {
   DATABASE_USERNAME,
   NODE_ENV,
 } from "@example-app/config.js"
-import {
-  resolveDatabaseDirectory,
-  resolveSeedDirectories,
-} from "@example-app/db/extensions/resolve-database-directories.js"
-import { determineRuntimeLoadExtensions } from "@example-app/db/extensions/determine-runtime-load-extensions.js"
+import { resolveDatabaseDirectory } from "@example-app/db/extensions/resolve-database-directory.js"
+import { resolveSeedDirectories } from "@example-app/db/extensions/resolve-seed-directories.js"
+import { extractRuntimeLoadExtensions } from "@example-app/db/extensions/extract-runtime-load-extensions.js"
 
 const migrationClient = knex({
   client: "pg",
@@ -35,11 +33,11 @@ const migrationClient = knex({
   },
   migrations: {
     directory: resolveDatabaseDirectory(import.meta.url, "./migrations/"),
-    loadExtensions: determineRuntimeLoadExtensions(import.meta.url),
+    loadExtensions: extractRuntimeLoadExtensions(import.meta.url),
   },
   seeds: {
     directory: resolveSeedDirectories(import.meta.url, NODE_ENV),
-    loadExtensions: determineRuntimeLoadExtensions(import.meta.url),
+    loadExtensions: extractRuntimeLoadExtensions(import.meta.url),
   },
 })
 
