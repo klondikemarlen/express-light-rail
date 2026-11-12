@@ -4,6 +4,7 @@ const SALT_LENGTH = 16
 const KEY_LENGTH = 64
 const SALT_ENCODING = /^[A-Za-z0-9_-]{22}$/
 const KEY_ENCODING = /^[A-Za-z0-9_-]{86}$/
+const DUMMY_PASSWORD_HASH = `scrypt$v1$${Buffer.alloc(SALT_LENGTH).toString("base64url")}$${Buffer.alloc(KEY_LENGTH).toString("base64url")}`
 
 function deriveKey(password: string, salt: Buffer): Promise<Buffer> {
   return new Promise((resolve, reject) => {
@@ -24,8 +25,12 @@ export async function hashPassword(password: string): Promise<string> {
   return `scrypt$v1$${salt.toString("base64url")}$${key.toString("base64url")}`
 }
 
-export async function verifyPassword(password: string, hash: string): Promise<boolean> {
-  const [algorithm, version, saltText, keyText, extra] = hash.split("$")
+export async function verifyPassword(
+  password: string,
+  hash: string | null | undefined
+): Promise<boolean> {
+  // Missing credentials still perform the password derivation before returning false.
+  const [algorithm, version, saltText, keyText, extra] = (hash || DUMMY_PASSWORD_HASH).split("$")
   if (
     algorithm !== "scrypt" ||
     version !== "v1" ||
@@ -48,5 +53,6 @@ export async function verifyPassword(password: string, hash: string): Promise<bo
   }
 
   const actualKey = await deriveKey(password, salt)
-  return timingSafeEqual(actualKey, expectedKey)
+  const passwordMatches = timingSafeEqual(actualKey, expectedKey)
+  return Boolean(hash) && passwordMatches
 }
