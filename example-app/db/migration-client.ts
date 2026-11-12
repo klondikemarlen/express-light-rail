@@ -1,6 +1,3 @@
-import { extname } from "node:path"
-import { fileURLToPath } from "node:url"
-
 import knex from "knex"
 
 import {
@@ -15,14 +12,10 @@ import {
   DATABASE_USERNAME,
   NODE_ENV,
 } from "@example-app/config.js"
+import { getDatabaseDirectories } from "@example-app/db/extensions/get-database-directories.js"
+import { getRuntimeLoadExtensions } from "@example-app/db/extensions/get-runtime-load-extensions.js"
 
-const extension = extname(fileURLToPath(import.meta.url))
-const seedDirectories = []
-if (NODE_ENV === "development") {
-  seedDirectories.push(fileURLToPath(new URL("./seeds/development/", import.meta.url)))
-}
-
-export const migrationClient = knex({
+const migrationClient = knex({
   client: "pg",
   connection: {
     host: DATABASE_HOST,
@@ -38,11 +31,14 @@ export const migrationClient = knex({
     idleTimeoutMillis: DATABASE_POOL_IDLE_TIMEOUT_MILLISECONDS,
   },
   migrations: {
-    directory: fileURLToPath(new URL("./migrations/", import.meta.url)),
-    loadExtensions: [extension],
+    directory: getDatabaseDirectories(import.meta.url, "migrations", NODE_ENV),
+    loadExtensions: getRuntimeLoadExtensions(import.meta.url),
+    sortDirsSeparately: true,
   },
   seeds: {
-    directory: seedDirectories,
-    loadExtensions: [extension],
+    directory: getDatabaseDirectories(import.meta.url, "seeds", NODE_ENV),
+    loadExtensions: getRuntimeLoadExtensions(import.meta.url),
   },
 })
+
+export default migrationClient
