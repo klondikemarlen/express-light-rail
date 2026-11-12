@@ -9,7 +9,7 @@ case "$PACKAGE_TGZ" in
 esac
 [ -f "$PACKAGE_TGZ" ] || { printf 'Package tarball not found: %s\n' "$PACKAGE_TGZ" >&2; exit 1; }
 
-SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+SCRIPT_DIR=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
 for consumer in travel elcc; do
   printf '\n== %s consumer (%s) ==\n' "$consumer" "$PACKAGE_TGZ"
   cd "$SCRIPT_DIR/$consumer"

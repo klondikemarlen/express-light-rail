@@ -25,8 +25,6 @@ class GithubApi
     format_branch_name(issue_repo, issue_number, issue_title)
   end
 
-  private
-
   def self.extract_issue_repo(url)
     match_data = url.match(%r{github.com/([^/]+)/([^/]+)/issues/\d+})
     "#{match_data[1]}/#{match_data[2]}"
@@ -68,4 +66,6 @@ class GithubApi
     issue_owner = issue_repo.split('/')[0]
     "#{issue_owner}-issue-#{issue_number}/#{formatted_title}"
   end
+
+  private_class_method :extract_issue_repo, :extract_issue_number, :fetch_issue_title, :format_branch_name
 end
