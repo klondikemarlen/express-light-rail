@@ -93,7 +93,6 @@
     "example:dev": "nodemon --signal SIGTERM --watch src --watch example-app --watch tsconfig.json --ext ts,json --exec \"npm run example\"",
     "test": "vitest",
     "prepublishOnly": "npm run check-types && npm run test -- --run && npm run build",
-    "ts-node": "ts-node -r tsconfig-paths/register --logError",
     "lint": "eslint .",
     "check-types": "tsc -p tests/tsconfig.json --noEmit"
   },
@@ -193,7 +192,6 @@
     "qs": "^6.17.0",
     "socket.io": "^4.8.4",
     "supertest": "^7.0.0",
-    "ts-node-dev": "^2.0.0",
     "tsc-alias": "^1.8.10",
     "typescript": "^5.7.3",
     "typescript-eslint": "^8.24.0",
