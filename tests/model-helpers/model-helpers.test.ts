@@ -43,7 +43,7 @@ class CompositeRecord extends Model<CompositeRecordAttributes> {
 
 function createTestDatabase() {
   if (NODE_ENV !== "test" || !DATABASE_NAME.endsWith("_test")) {
-    throw new Error("Model helper tests require NODE_ENV=test and a DB_NAME ending in _test")
+    throw new Error("Model helper tests require NODE_ENV=test and a DATABASE_NAME ending in _test")
   }
 
   return new Sequelize({

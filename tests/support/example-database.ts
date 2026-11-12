@@ -6,7 +6,7 @@ import { db, Comment, Thread, User } from "@example-app/models/index.js"
 
 function assertTestDatabase(): void {
   if (NODE_ENV !== "test" || !DATABASE_NAME.endsWith("_test")) {
-    throw new Error("Example database tests require NODE_ENV=test and a DB_NAME ending in _test")
+    throw new Error("Example database tests require NODE_ENV=test and a DATABASE_NAME ending in _test")
   }
 }
 
