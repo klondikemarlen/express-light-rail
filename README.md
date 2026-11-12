@@ -314,6 +314,8 @@ This repo still has the local `bin/dev` wrapper, but Docker is optional for pack
 3. Build with `dev build`.
 4. Test with `dev test`.
 
+The example compiles TypeScript with `tsc` and runs the emitted JavaScript with Node; there is no `ts-node` command. OMP Verifier uses `.omp-verifier.json` to run the existing non-fixing lint script through `bin/dev run -T app`. Build the Docker image and install dependencies before running verification.
+
 ## Publishing
 
 Publishing is intentionally boring npm:
