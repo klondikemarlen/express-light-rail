@@ -9,6 +9,6 @@ import { fileURLToPath } from "node:url"
  * the .ts filter does not distinguish .d.ts files from executable TypeScript.
  * This selects files only; the runtime must already support their format.
  */
-export function determineRuntimeLoadExtensions(moduleUrl: string): string[] {
+export function extractRuntimeLoadExtensions(moduleUrl: string): string[] {
   return [extname(fileURLToPath(moduleUrl))]
 }
