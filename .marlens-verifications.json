@@ -1,0 +1,13 @@
+{
+  "typescriptRuntimeEntrypoints": {
+    "tsconfig": "example-app/tsconfig.json",
+    "timeoutMs": 60000,
+    "commands": [
+      {
+        "name": "Example application import",
+        "command": ["./bin/dev", "npm", "run", "check-runtime"]
+      }
+    ],
+    "fullTypecheck": ["./bin/dev", "check-types"]
+  }
+}
