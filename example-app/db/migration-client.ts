@@ -1,3 +1,6 @@
+import { extname } from "node:path"
+import { fileURLToPath } from "node:url"
+
 import knex from "knex"
 
 import {
@@ -12,9 +15,11 @@ import {
   DATABASE_USERNAME,
   NODE_ENV,
 } from "@example-app/config.js"
-import { resolveDatabaseDirectory } from "@example-app/db/extensions/resolve-database-directory.js"
 import { resolveSeedDirectories } from "@example-app/db/extensions/resolve-seed-directories.js"
-import { extractRuntimeLoadExtensions } from "@example-app/db/extensions/extract-runtime-load-extensions.js"
+
+// Match source or compiled migrations and seeds to this module's runtime.
+// The .ts filter also matches .d.ts; neither filter compiles files.
+const loadExtensions = [extname(fileURLToPath(import.meta.url))]
 
 const migrationClient = knex({
   client: "pg",
@@ -32,12 +37,12 @@ const migrationClient = knex({
     idleTimeoutMillis: DATABASE_POOL_IDLE_TIMEOUT_MILLISECONDS,
   },
   migrations: {
-    directory: resolveDatabaseDirectory(import.meta.url, "./migrations/"),
-    loadExtensions: extractRuntimeLoadExtensions(import.meta.url),
+    directory: fileURLToPath(new URL("./migrations/", import.meta.url)),
+    loadExtensions,
   },
   seeds: {
     directory: resolveSeedDirectories(import.meta.url, NODE_ENV),
-    loadExtensions: extractRuntimeLoadExtensions(import.meta.url),
+    loadExtensions,
   },
 })
 

@@ -1,6 +1,5 @@
 import { existsSync } from "node:fs"
-
-import { resolveDatabaseDirectory } from "@example-app/db/extensions/resolve-database-directory.js"
+import { fileURLToPath } from "node:url"
 
 /**
  * Selects only the current environment's seeds. An absent directory means
@@ -8,6 +7,6 @@ import { resolveDatabaseDirectory } from "@example-app/db/extensions/resolve-dat
  * directories. Migration discovery must not use this optional-directory rule.
  */
 export function resolveSeedDirectories(moduleUrl: string, environment: string): string[] {
-  const directory = resolveDatabaseDirectory(moduleUrl, `./seeds/${environment}/`)
+  const directory = fileURLToPath(new URL(`./seeds/${environment}/`, moduleUrl))
   return existsSync(directory) ? [directory] : []
 }
