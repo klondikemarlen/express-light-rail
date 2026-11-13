@@ -1,0 +1,335 @@
+import { jwtVerify, SignJWT } from "jose"
+import type { Express } from "express"
+import type { FactoryInterface } from "factory-shark"
+import request from "supertest"
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest"
+
+import type { User } from "@example-app/models/user.js"
+
+let application: Express
+let closeExampleDatabase: () => Promise<void>
+let userFactory: FactoryInterface<User>
+let cleanExampleDatabase: () => Promise<void>
+let jwtSecret: string
+let jwtIssuer: string
+let jwtAudience: string
+
+let previousJwtSecret: string | undefined
+const testPassword = "test-password"
+
+beforeAll(async () => {
+  previousJwtSecret = process.env.EXAMPLE_JWT_SECRET
+  process.env.EXAMPLE_JWT_SECRET = "test-secret-with-at-least-thirty-two-bytes"
+
+  // Static imports would load JWT configuration before this credential override.
+  const config = await import("@example-app/config.js")
+  jwtSecret = config.JWT_SECRET
+  jwtIssuer = config.JWT_ISSUER
+  jwtAudience = config.JWT_AUDIENCE
+  userFactory = (await import("@tests/example-app/factories/user-factory.js")).userFactory
+  application = (await import("@example-app/app.js")).app
+  const databaseSupport = await import("@tests/support/example-database.js")
+  cleanExampleDatabase = databaseSupport.cleanExampleDatabase
+  closeExampleDatabase = databaseSupport.closeExampleDatabase
+  await databaseSupport.prepareExampleDatabase()
+})
+
+beforeEach(async () => {
+  await cleanExampleDatabase()
+})
+
+afterAll(async () => {
+  await closeExampleDatabase?.()
+  if (previousJwtSecret === undefined) delete process.env.EXAMPLE_JWT_SECRET
+  else process.env.EXAMPLE_JWT_SECRET = previousJwtSecret
+})
+
+async function signedToken(
+  claims: { sub: string; aud?: string; iss?: string; exp?: number },
+  secret = jwtSecret
+): Promise<string> {
+  const key = new TextEncoder().encode(secret)
+  return new SignJWT({})
+    .setProtectedHeader({ alg: "HS256" })
+    .setSubject(claims.sub)
+    .setIssuer(claims.iss ?? jwtIssuer)
+    .setAudience(claims.aud ?? jwtAudience)
+    .setIssuedAt()
+    .setExpirationTime(claims.exp ?? "15m")
+    .sign(key)
+}
+
+async function login(username: string) {
+  return request(application).post("/api/session").send({
+    username,
+    password: testPassword,
+  })
+}
+
+describe("local session authentication", () => {
+  test("when credentials are valid, returns a signed bearer token without credentials", async () => {
+    // Arrange
+    const user = await userFactory.create({
+      username: "alice",
+    })
+
+    // Act
+    const response = await login(user.username)
+
+    // Assert
+    expect(response.status).toBe(201)
+    expect(response.body).toEqual({
+      accessToken: expect.any(String),
+      tokenType: "Bearer",
+      expiresIn: 900,
+    })
+  })
+
+  test("when credentials are valid, prevents caching the token response", async () => {
+    // Arrange
+    const user = await userFactory.create({ username: "alice" })
+
+    // Act
+    const response = await login(user.username)
+
+    // Assert
+    expect(response.headers["cache-control"]).toBe("no-store")
+  })
+
+  test("when credentials are valid, signs the token for the user's identity", async () => {
+    // Arrange
+    const user = await userFactory.create({ username: "alice" })
+
+    // Act
+    const response = await login(user.username)
+    const { payload } = await jwtVerify(
+      response.body.accessToken,
+      new TextEncoder().encode(jwtSecret),
+      { issuer: jwtIssuer, audience: jwtAudience, algorithms: ["HS256"] }
+    )
+
+    // Assert
+    expect(payload).toMatchObject({
+      sub: String(user.id),
+      iss: jwtIssuer,
+      aud: jwtAudience,
+      iat: expect.any(Number),
+      exp: expect.any(Number),
+    })
+  })
+
+  test("when credentials are valid, limits the signed token lifetime to fifteen minutes", async () => {
+    // Arrange
+    const user = await userFactory.create({ username: "alice" })
+
+    // Act
+    const response = await login(user.username)
+    const { payload } = await jwtVerify(
+      response.body.accessToken,
+      new TextEncoder().encode(jwtSecret),
+      { issuer: jwtIssuer, audience: jwtAudience, algorithms: ["HS256"] }
+    )
+
+    // Assert
+    expect((payload.exp ?? 0) - (payload.iat ?? 0)).toBe(900)
+  })
+
+  test.each(["URL-encoded", "multipart"])(
+    "when %s credentials look like booleans, preserves their exact strings",
+    async (format) => {
+      // Arrange
+      await userFactory.create({
+        username: "true",
+        password: "false",
+      })
+      const route = request(application).post("/api/session")
+      if (format === "URL-encoded") {
+        route.type("form").send({ username: "true", password: "false" })
+      } else {
+        route.field("username", "true").field("password", "false")
+      }
+
+      // Act
+      const response = await route
+
+      // Assert
+      expect(response.status).toBe(201)
+      expect(response.body).toEqual({
+        accessToken: expect.any(String),
+        tokenType: "Bearer",
+        expiresIn: 900,
+      })
+    }
+  )
+
+  test.each([
+    ["wrong password", "alice", "incorrect-password"],
+    ["unknown username", "unknown", testPassword],
+  ])("when %s is submitted, rejects credentials generically", async (_, username, password) => {
+    // Arrange
+    await userFactory.create({
+      username: "alice",
+    })
+
+    // Act
+    const response = await request(application).post("/api/session").send({ username, password })
+
+    // Assert
+    expect(response.status).toBe(401)
+    expect(response.body).toEqual({
+      error: {
+        code: "unauthorized",
+        msg: "Invalid username or password",
+        meta: {},
+      },
+    })
+  })
+
+  test.each([{}, { username: "alice" }, { password: testPassword }])(
+    "when login credentials are missing (%o), rejects the request",
+    async (credentials) => {
+      // Arrange
+
+      // Act
+      const response = await request(application).post("/api/session").send(credentials)
+
+      // Assert
+      expect(response.status).toBe(400)
+      expect(response.body).toEqual({
+        error: {
+          code: "invalid_input",
+          msg: "Username and password are required",
+          meta: {},
+        },
+      })
+    }
+  )
+
+  test("when a login token authenticates a request, returns the current user's resource identity", async () => {
+    // Arrange
+    const user = await userFactory.create({
+      username: "alice",
+      name: "Alice",
+    })
+    const loginResponse = await login(user.username)
+    const route = request(application)
+      .get("/api/users")
+      .set("Authorization", `Bearer ${loginResponse.body.accessToken}`)
+
+    // Act
+    const response = await route
+
+    // Assert
+    expect(response.status).toBe(200)
+    expect(response.body).toEqual({
+      users: [{ id: user.id, username: "alice", name: "Alice" }],
+    })
+  })
+
+  test("when only the old identity header is supplied, denies access", async () => {
+    // Arrange
+    await userFactory.create({ username: "alice" })
+
+    // Act
+    const response = await request(application).get("/api/users").set("x-user-id", "alice")
+
+    // Assert
+    expect(response.status).toBe(401)
+    expect(response.body).toEqual({
+      error: { code: "unauthorized", msg: "Authentication required", meta: {} },
+    })
+  })
+
+  test("when only a query token is supplied, denies access", async () => {
+    // Arrange
+    const user = await userFactory.create({ username: "alice" })
+    const token = await signedToken({ sub: String(user.id) })
+
+    // Act
+    const response = await request(application).get("/api/users").query({ access_token: token })
+
+    // Assert
+    expect(response.status).toBe(401)
+    expect(response.body).toEqual({
+      error: { code: "unauthorized", msg: "Authentication required", meta: {} },
+    })
+  })
+
+  test.each([
+    ["expired", { exp: Math.floor(Date.now() / 1000) - 120 }],
+    ["wrong audience", { aud: "another-api" }],
+    ["wrong issuer", { iss: "another-issuer" }],
+  ])("when a %s token is supplied, denies access", async (_, claims) => {
+    // Arrange
+    const user = await userFactory.create({ username: "alice" })
+    const token = await signedToken({ ...claims, sub: String(user.id) })
+
+    // Act
+    const response = await request(application)
+      .get("/api/users")
+      .set("Authorization", `Bearer ${token}`)
+
+    // Assert
+    expect(response.status).toBe(401)
+    expect(response.body).toEqual({
+      error: { code: "unauthorized", msg: "Authentication required", meta: {} },
+    })
+  })
+
+  test("when a token is signed with an untrusted secret, denies access", async () => {
+    // Arrange
+    const user = await userFactory.create({ username: "alice" })
+    const token = await signedToken(
+      { sub: String(user.id) },
+      "different-secret-with-at-least-thirty-two-bytes"
+    )
+
+    // Act
+    const response = await request(application)
+      .get("/api/users")
+      .set("Authorization", `Bearer ${token}`)
+
+    // Assert
+    expect(response.status).toBe(401)
+    expect(response.body).toEqual({
+      error: { code: "unauthorized", msg: "Authentication required", meta: {} },
+    })
+  })
+
+  test("when a token belongs to a deleted user, denies access", async () => {
+    // Arrange
+    const user = await userFactory.create({ username: "alice" })
+    const loginResponse = await login(user.username)
+    await user.destroy()
+
+    // Act
+    const response = await request(application)
+      .get("/api/users")
+      .set("Authorization", `Bearer ${loginResponse.body.accessToken}`)
+
+    // Assert
+    expect(response.status).toBe(401)
+    expect(response.body).toEqual({
+      error: { code: "unauthorized", msg: "Authentication required", meta: {} },
+    })
+  })
+
+  test("when a token is supplied in the request body, denies access", async () => {
+    // Arrange
+    const user = await userFactory.create({ username: "alice" })
+    const token = await signedToken({ sub: String(user.id) })
+
+    // Act
+    const response = await request(application).post("/api/threads").type("form").send({
+      title: "Must not be created",
+      body: "Body credentials are not accepted",
+      HOISTABLE_AUTHORIZATION_TOKEN: token,
+    })
+
+    // Assert
+    expect(response.status).toBe(401)
+    expect(response.body).toEqual({
+      error: { code: "unauthorized", msg: "Authentication required", meta: {} },
+    })
+  })
+})

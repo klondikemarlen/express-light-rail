@@ -99,24 +99,23 @@ behavior. Transaction boundaries remain host-owned.
 
 ## Executable example
 
-[`example-app/`](https://github.com/klondikemarlen/express-light-rail/tree/main/example-app) is a small in-memory Express app, not a fake database adapter. It shows normal `Router` composition, demo current-user middleware, a host `ApplicationController` identity getter, resource controllers, host policy, mutation service, explicit serializer, safe error middleware and policy/client-filter intersection. Run from a repository checkout after installing peer/dev dependencies and building the package:
+For a guided introduction to running the app and following its request flow, start with the [example application walkthrough](../example-app/README.md).
+
+[`example-app/`](https://github.com/klondikemarlen/express-light-rail/tree/main/example-app) is a PostgreSQL-backed discussion board with users, threads, and comments. It demonstrates full thread/comment CRUD, Express-native routes, a shared `ApplicationController`, inherited policy attribute filtering through `ApplicationPolicy`, author-only mutations, transactional soft deletion, services, serializers, and safe error handling. Run from a repository checkout using Docker Compose:
 
 ```sh
-npm run example
+bin/dev build app
+bin/dev up -d app
 ```
 
-Try the public behavior:
+Log in with the seeded credentials described in the [walkthrough](../example-app/README.md), then use the returned bearer token:
 
 ```sh
-curl -H 'x-user-id: alice' 'http://localhost:3000/api/tasks?status=open'
-curl -i -H 'x-user-id: alice' -H 'content-type: application/json' \
-  -d '{"title":"Allowed","status":"open","visibility":"private"}' http://localhost:3000/api/tasks
-curl -i -H 'x-user-id: bob' -H 'content-type: application/json' \
-  -d '{"title":"Blocked","status":"open"}' http://localhost:3000/api/tasks
-curl -i -H 'x-user-id: alice' 'http://localhost:3000/api/tasks?fail=true'
+curl -H "Authorization: Bearer $ALICE_TOKEN" http://localhost:3000/api/threads
+curl -H "Authorization: Bearer $BOB_TOKEN" http://localhost:3000/api/threads/1/comments
 ```
 
-Alice's list request returns her open private task and excludes Bob's private task; changing `status` narrows, never widens, what the policy permits. Alice's mutation is allowed, Bob's mutation is a safe 403, and the deliberately thrown unexpected failure is a generic 500 response. `x-user-id` is demonstration-only, not production authentication.
+Follow the [walkthrough](../example-app/README.md) for login, create, update, delete, forbidden, validation, and nested-resource scenarios. Startup runs versioned migrations and idempotent development seeds that create missing demo records without overwriting existing matches. Password hashes and 15-minute bearer JWTs are owned by the example, not the framework. This example is not a migration of WRAP, Travel Authorization, or ELCC.
 
 ## Consumer-shaped cutover fixtures and artifact smoke
 

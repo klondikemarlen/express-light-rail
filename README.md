@@ -34,6 +34,7 @@ Detailed convention docs live beside the source:
 - [Browser-safe query, policy, and channel packet contracts](docs/browser-contracts.md)
 - [Optional BullMQ jobs, outbox handoff, and worker lifecycle](docs/jobs.md)
 - [One authenticated Socket.IO channel with typed resource packets](docs/channels.md)
+- [Run and explore the example application](example-app/README.md)
 
 ## Controller upgrade from 0.9
 
