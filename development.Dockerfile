@@ -1,16 +1,14 @@
-FROM node:22.13.0-alpine3.21
+FROM node:24.15.0-alpine3.23
 
 WORKDIR /usr/src/app
 
 COPY package*.json ./
-
-RUN npm install
-
-RUN apk add --no-cache ruby ruby-rdoc shellcheck \
+RUN npm ci
+RUN apk add --no-cache bash ruby ruby-rdoc shellcheck \
     && apk add --no-cache --virtual .lint-build ruby-dev build-base \
     && gem install rubocop --version 1.92.2 --no-document \
     && apk del .lint-build
 
-COPY ./src ./src
+COPY . .
 
-CMD ["npm run start"]
+CMD ["npm", "run", "example:dev"]

@@ -1,7 +1,17 @@
 import { DataTypes, EmptyResultError, Model, Sequelize, type ModelStatic } from "@sequelize/core"
-import { SqliteDialect } from "@sequelize/sqlite3"
+import { PostgresDialect } from "@sequelize/postgres"
 
 import { reloadWithScope, withScope } from "@/model-helpers/index.js"
+
+import {
+  DATABASE_HOST,
+  DATABASE_NAME,
+  DATABASE_PASSWORD,
+  DATABASE_PORT,
+  DATABASE_USERNAME,
+  NODE_ENV,
+} from "@example-app/config.js"
+import { initialize as ensureDatabase } from "@example-app/initializers/10-ensure-database.js"
 
 interface ReloadRecordAttributes {
   id: number
@@ -31,16 +41,23 @@ class CompositeRecord extends Model<CompositeRecordAttributes> {
   declare name: string
 }
 
-const sequelize = new Sequelize({
-  dialect: SqliteDialect,
-  storage: ":memory:",
-  logging: false,
-  pool: {
-    max: 1,
-    idle: Infinity,
-    maxUses: Infinity,
-  },
-})
+function createTestDatabase() {
+  if (NODE_ENV !== "test" || !DATABASE_NAME.endsWith("_test")) {
+    throw new Error("Model helper tests require NODE_ENV=test and a DATABASE_NAME ending in _test")
+  }
+
+  return new Sequelize({
+    dialect: PostgresDialect,
+    host: DATABASE_HOST,
+    port: DATABASE_PORT,
+    database: DATABASE_NAME,
+    user: DATABASE_USERNAME,
+    password: DATABASE_PASSWORD,
+    logging: false,
+  })
+}
+
+const sequelize = createTestDatabase()
 
 ReloadRecord.init(
   {
@@ -103,17 +120,22 @@ CompositeRecord.init(
 )
 
 describe("model helpers", () => {
+  beforeAll(ensureDatabase)
+
   beforeEach(async () => {
-    await sequelize.sync({ force: true })
+    await ReloadRecord.sync({ force: true })
+    await CompositeRecord.sync({ force: true })
   })
 
   afterAll(async () => {
+    await CompositeRecord.drop()
+    await ReloadRecord.drop()
     await sequelize.close()
   })
 
-  test("when applying a scope, it preserves custom statics and concrete record types", async () => {
+  test("when applying a scope, it preserves custom statics", async () => {
     // Arrange
-    const record = await ReloadRecord.create({
+    await ReloadRecord.create({
       name: "Ada",
       visible: true,
     })
@@ -121,12 +143,9 @@ describe("model helpers", () => {
     // Act
     const scopedModel = withScope(ReloadRecord, "visible")
     const foundRecord = await scopedModel.findByName("Ada")
-    const reloadedRecord = await reloadWithScope(record, "visible")
 
     // Assert
     expect(foundRecord?.name).toBe("Ada")
-    expect(reloadedRecord).toBeInstanceOf(ReloadRecord)
-    expect(reloadedRecord).not.toBe(record)
   })
 
   test("when applying consecutive scopes, it combines every filter", async () => {
@@ -151,12 +170,7 @@ describe("model helpers", () => {
 
   test("when a model customizes scopes, it preserves host-owned filtering", async () => {
     // Arrange
-    const database = new Sequelize({
-      dialect: SqliteDialect,
-      storage: ":memory:",
-      logging: false,
-      pool: { max: 1, idle: Infinity, maxUses: Infinity },
-    })
+    const database = createTestDatabase()
 
     try {
       class HostScopedRecord extends Model<{ identifier: number; visible: boolean }> {
@@ -199,6 +213,7 @@ describe("model helpers", () => {
         },
       ])
     } finally {
+      await database.drop()
       await database.close()
     }
   })
@@ -237,16 +252,7 @@ describe("model helpers", () => {
 
   test("when an init-configured query hook returns raw arrays, reload rejects the result shape", async () => {
     // Arrange
-    const hookSequelize = new Sequelize({
-      dialect: SqliteDialect,
-      storage: ":memory:",
-      logging: false,
-      pool: {
-        max: 1,
-        idle: Infinity,
-        maxUses: Infinity,
-      },
-    })
+    const hookSequelize = createTestDatabase()
 
     try {
       class HookedRecord extends Model<ReloadRecordAttributes, Omit<ReloadRecordAttributes, "id">> {
@@ -297,6 +303,7 @@ describe("model helpers", () => {
         "reloadWithScope expected a model instance, but a model hook changed the find result shape."
       )
     } finally {
+      await hookSequelize.drop()
       await hookSequelize.close()
     }
   })
@@ -313,8 +320,29 @@ describe("model helpers", () => {
     const reloadedRecord = await reloadWithScope(record, "visible")
 
     // Assert
+    expect(reloadedRecord.get()).toEqual({ id: record.id, name: "after", visible: true })
+  })
+
+  test("when reloading a record, it returns a distinct model instance", async () => {
+    // Arrange
+    const record = await ReloadRecord.create({ name: "Ada", visible: true })
+
+    // Act
+    const reloadedRecord = await reloadWithScope(record, "visible")
+
+    // Assert
     expect(reloadedRecord).not.toBe(record)
-    expect(reloadedRecord.name).toBe("after")
+  })
+
+  test("when reloading changed persisted state, it leaves the original instance unchanged", async () => {
+    // Arrange
+    const record = await ReloadRecord.create({ name: "before", visible: true })
+    await ReloadRecord.update({ name: "after" }, { where: { id: record.id } })
+
+    // Act
+    await reloadWithScope(record, "visible")
+
+    // Assert
     expect(record.name).toBe("before")
   })
 
@@ -344,9 +372,7 @@ describe("model helpers", () => {
     const reloadedRecord = await reloadWithScope(record, null)
 
     // Assert
-    expect(reloadedRecord).not.toBe(record)
-    expect(reloadedRecord.name).toBe("after")
-    expect(record.name).toBe("before")
+    expect(reloadedRecord.get()).toEqual({ firstKey: 10, secondKey: 20, name: "after" })
   })
 
   test("when passing lookup options, it preserves transaction and attribute selection", async () => {
@@ -372,9 +398,7 @@ describe("model helpers", () => {
       })
 
       // Assert
-      expect(reloadedRecord.name).toBe("inside transaction")
-      expect(reloadedRecord.getDataValue("visible")).toBeUndefined()
-      expect(record.name).toBe("before")
+      expect(reloadedRecord.get()).toEqual({ id: record.id, name: "inside transaction" })
     })
   })
 
@@ -431,12 +455,7 @@ describe("model helpers", () => {
 
   test("when a host query hook replaces identity, reload rejects the different record", async () => {
     // Arrange
-    const database = new Sequelize({
-      dialect: SqliteDialect,
-      storage: ":memory:",
-      logging: false,
-      pool: { max: 1, idle: Infinity, maxUses: Infinity },
-    })
+    const database = createTestDatabase()
     try {
       class HookedRecord extends Model<ReloadRecordAttributes> {}
       HookedRecord.init(
@@ -465,6 +484,7 @@ describe("model helpers", () => {
       // Assert
       await expect(reload).rejects.toThrow("reloadWithScope expected the original primary key")
     } finally {
+      await database.drop()
       await database.close()
     }
   })

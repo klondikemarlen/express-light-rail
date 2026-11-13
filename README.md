@@ -293,26 +293,28 @@ await SendWelcomeEmailJob.queueAs("slow-mailers").performLater(1)
 
 ## Development
 
-### Without Docker
-
-Use the project-local Node.js version selected by `.tool-versions`; run `asdf install nodejs` if it is not installed. No shell-level `ASDF_NODEJS_VERSION` override is needed.
+Use Docker Compose through `bin/dev`, as in the host applications. Install Docker with Compose and the Ruby version in `.tool-versions`, then run:
 
 ```bash
-npm install
-npm run check-types
-npm run test -- --run
-npm run build
-npm pack --dry-run
+bin/dev build app
+bin/dev up -d app
+bin/dev logs app
+bin/dev test -- --run
+bin/dev check-types
+bin/dev npm run lint
+bin/dev npm run build
+bin/dev npm pack --dry-run --json
 ```
 
-### With Docker
+The example uses PostgreSQL, with separate development and test databases. Compose waits for database health before starting application commands. The application watches source changes and rebuilds automatically. `bin/dev npm ci` refreshes the container dependency volume after dependency changes.
 
-This repo still has the local `bin/dev` wrapper, but Docker is optional for package work.
+Migration and seed initializers share the configured client in `example-app/db/migration-client.ts`. Development SQL is compacted with `pg-minify` and sent through Winston; SQL logging is disabled in test and production.
 
-1. Set up `asdf` and install `ruby`.
-2. Set up `direnv` with an `.envrc` containing `PATH_add bin`.
-3. Build with `dev build`.
-4. Test with `dev test`.
+Import the configured client with `import migrationClient from "@example-app/db/migration-client.js"`. The client resolves migration paths beside its module and computes the runtime file extension once for migrations and seeds. Every environment uses the same fixed `db/migrations/` directory, following WRAP; migrations do not vary by `NODE_ENV`. The seed-directory helper selects optional `db/seeds/<NODE_ENV>/`; only development currently supplies seeds. Missing seed directories mean there are no seeds for that environment.
+
+Use `API_PORT=3352 bin/dev up -d app` to change the host HTTP port. Set a unique `COMPOSE_PROJECT_NAME` for an isolated checkout; its containers, dependencies, and database volume remain separate from other projects. `bin/dev down` stops the project without deleting database data. Do not use another application's database for these tests.
+
+Database configuration uses `DATABASE_*` names, matching the Compose service `database` and the `bin/dev database` command. When updating an existing checkout, run `bin/dev down` before pulling the rename, update any local `DB_*` overrides to the names in `example-app/config.ts`, then start normally. The `postgres_data` volume and database names are unchanged; do not remove the volume.
 
 Run TypeScript scripts with `bin/dev tsx --tsconfig example-app/tsconfig.json example-app/app.ts`. The helper forwards arguments to `tsx`; it supports native ESM and TypeScript path aliases without `tsconfig-paths/register`. It does not type-check or emit decorator metadata: keep `bin/dev check-types` and compiled example startup. See [production-project upgrade instructions](docs/tooling.md#typescript-script-runner-upgrade) for WRAP and Travel Authorization.
 

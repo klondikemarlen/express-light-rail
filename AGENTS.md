@@ -87,17 +87,19 @@ Route design:
 
 ## Commands
 
-Prefer local npm commands for package work because Docker may be used by other projects concurrently.
+Use Docker Compose through `bin/dev` for development and package verification. The example uses PostgreSQL with WRAP-style Knex migrations, underscored database columns, timestamps, and paranoid models; do not add SQLite, in-memory databases, or a parallel native-host development path.
 
 ```bash
-npm install
-npm run check-types
-npm run test -- --run
-npm run build
-npm pack --dry-run --json
+bin/dev build app
+bin/dev up -d app
+bin/dev test -- --run
+bin/dev check-types
+bin/dev npm run lint
+bin/dev npm run build
+bin/dev npm pack --dry-run --json
 ```
 
-Docker wrapper scripts may exist for local development, but they are not required for package verification.
+Tests use the Compose-selected `express_light_rail_test` database, never development data. Use a unique `COMPOSE_PROJECT_NAME` for isolated worktrees and preserve other projects' Docker resources.
 
 ## Packaging
 
